@@ -13,6 +13,7 @@ import org.briarproject.nullsafety.NotNullByDefault;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLConnection;
 import java.util.Collection;
 import java.util.logging.Logger;
 
@@ -33,6 +34,8 @@ class AttachmentCreationTask {
 
 	private static final Logger LOG =
 			getLogger(AttachmentCreationTask.class.getName());
+	private static final String VOICE_MIME_TYPE = "audio/mp4";
+	private static final String VOICE_EXTENSION = ".m4a";
 
 	private final MessagingManager messagingManager;
 	private final ContentResolver contentResolver;
@@ -97,10 +100,22 @@ class AttachmentCreationTask {
 			throws IOException, DbException {
 		long start = now();
 		String contentType = contentResolver.getType(uri);
-		if (contentType == null) throw new IOException("null content type");
-		if (!asList(getSupportedImageContentTypes()).contains(contentType)) {
-			throw new UnsupportedMimeTypeException(contentType, uri);
+		if (contentType == null) {
+			String guessed = URLConnection.guessContentTypeFromName(uri.getPath());
+			if (guessed != null) contentType = guessed;
 		}
+		if (contentType == null && uri.getPath() != null &&
+				uri.getPath().toLowerCase().endsWith(VOICE_EXTENSION)) {
+			contentType = VOICE_MIME_TYPE;
+		}
+		if (contentType == null) throw new IOException("null content type");
+
+		boolean image = asList(getSupportedImageContentTypes()).contains(contentType);
+		boolean voice = VOICE_MIME_TYPE.equals(contentType) ||
+				"audio/x-m4a".equals(contentType);
+		if (!image && !voice)
+			throw new UnsupportedMimeTypeException(contentType, uri);
+
 		InputStream is;
 		try {
 			is = contentResolver.openInputStream(uri);
@@ -108,10 +123,13 @@ class AttachmentCreationTask {
 		} catch (SecurityException e) {
 			throw new IOException(e);
 		}
-		is = imageCompressor.compressImage(is, contentType);
+		if (image) {
+			is = imageCompressor.compressImage(is, contentType);
+			contentType = MIME_TYPE;
+		}
 		long timestamp = System.currentTimeMillis();
 		AttachmentHeader h = messagingManager.addLocalAttachment(groupId,
-				timestamp, MIME_TYPE, is);
+				timestamp, contentType, is);
 		tryToClose(is, LOG, WARNING);
 		logDuration(LOG, "Storing attachment", start);
 		return h;
