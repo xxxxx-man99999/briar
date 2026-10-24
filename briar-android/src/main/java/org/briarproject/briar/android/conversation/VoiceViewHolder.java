@@ -4,7 +4,6 @@ import android.view.View;
 import android.widget.ImageButton;
 
 import org.briarproject.briar.R;
-import org.briarproject.briar.android.attachment.AttachmentItem;
 import org.briarproject.nullsafety.NotNullByDefault;
 
 import androidx.annotation.UiThread;
@@ -21,7 +20,7 @@ final class VoiceViewHolder extends RecyclerView.ViewHolder {
 		playButton = view.findViewById(R.id.playVoice);
 	}
 
-	void bind(AttachmentItem item, View.OnClickListener listener) {
+	void bind(View.OnClickListener listener) {
 		playButton.setOnClickListener(listener);
 		itemView.setOnClickListener(listener);
 	}
