@@ -66,12 +66,10 @@ public class EmojiTextInputView extends LinearLayout implements
 			int defStyleAttr) {
 		super(context, attrs, defStyleAttr);
 
-		// inflate layout
 		LayoutInflater inflater = (LayoutInflater) requireNonNull(
 				context.getSystemService(LAYOUT_INFLATER_SERVICE));
 		inflater.inflate(R.layout.emoji_text_input_view, this, true);
 
-		// get attributes
 		TypedArray a = context.obtainStyledAttributes(attrs,
 				R.styleable.EmojiTextInputView);
 		int paddingBottom = a.getDimensionPixelSize(
@@ -82,7 +80,6 @@ public class EmojiTextInputView extends LinearLayout implements
 				a.getInteger(R.styleable.EmojiTextInputView_maxTextLines, 0);
 		a.recycle();
 
-		// apply attributes to editText
 		editText = findViewById(R.id.input_text);
 		editText.setPadding(0, 0, paddingEnd, paddingBottom);
 		if (maxLines > 0) editText.setMaxLines(maxLines);
@@ -95,7 +92,6 @@ public class EmojiTextInputView extends LinearLayout implements
 			}
 			return false;
 		});
-		// also support sending with Ctrl+Enter
 		editText.setOnKeyListener((v, keyCode, event) -> {
 			if (listener != null && keyCode == KEYCODE_ENTER &&
 					event.isCtrlPressed()) {
@@ -106,7 +102,6 @@ public class EmojiTextInputView extends LinearLayout implements
 		});
 		emojiToggle = findViewById(R.id.emoji_toggle);
 
-		// stuff we can't do in edit mode goes below
 		if (isInEditMode()) {
 			emojiPopup = null;
 			imm = null;
@@ -144,15 +139,12 @@ public class EmojiTextInputView extends LinearLayout implements
 	public void onTextChanged(CharSequence s, int start, int before,
 			int count) {
 		if (emptyTextAllowed || listener == null) return;
-		// Work out whether the trimmed text has become empty or non-empty
 		if (isEmpty) {
-			// We only need to check the characters that were added
 			if (countLeadingWhitespace(s, start, count) < count) {
 				isEmpty = false;
 				listener.onTextIsEmptyChanged(false);
 			}
 		} else if (before > 0) {
-			// Characters have been removed or replaced - check from the start
 			int length = s.length();
 			if (countLeadingWhitespace(s, 0, length) == length) {
 				isEmpty = true;
@@ -211,10 +203,11 @@ public class EmojiTextInputView extends LinearLayout implements
 		editText.setMaxLines(maxLines);
 	}
 
-	/**
-	 * Returns the current text or {@code null},
-	 * if it is empty or only consists of white-spaces.
-	 */
+	/** Returns the emoji toggle view for contextual onboarding. */
+	public AppCompatImageButton getEmojiToggleView() {
+		return emojiToggle;
+	}
+
 	@Nullable
 	String getText() {
 		Editable editable = editText.getText();
@@ -292,7 +285,6 @@ public class EmojiTextInputView extends LinearLayout implements
 
 	interface TextInputListener {
 		void onTextIsEmptyChanged(boolean isEmpty);
-
 		void onSendEvent();
 	}
 
