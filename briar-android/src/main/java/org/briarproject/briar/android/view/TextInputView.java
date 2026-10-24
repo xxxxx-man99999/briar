@@ -100,6 +100,14 @@ public class TextInputView extends LinearLayout {
 		voiceButton.setOnClickListener(listener);
 	}
 
+	public void setVoiceRecording(boolean recording) {
+		voiceButton.setImageResource(recording ?
+				android.R.drawable.ic_media_pause :
+				android.R.drawable.ic_btn_speak_now);
+		voiceButton.setContentDescription(recording ?
+				"Stop voice recording" : "Record voice message");
+	}
+
 	public void setVoiceEnabled(boolean enabled) {
 		voiceButton.setEnabled(enabled);
 	}
