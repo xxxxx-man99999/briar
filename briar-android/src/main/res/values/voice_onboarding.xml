@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="voice_onboarding_title">Record a voice message</string>
+	<string name="voice_onboarding_text">Tap the microphone to start recording, then tap it again to stop.</string>
+	<string name="emoji_onboarding_title">Add an emoji</string>
+	<string name="emoji_onboarding_text">Tap the emoji button to open the emoji keyboard.</string>
+</resources>
