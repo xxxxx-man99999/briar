@@ -18,4 +18,5 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Build debug APK
+        # Force a fresh automatic build on master.
         run: ./gradlew assembleDebug --stacktrace
