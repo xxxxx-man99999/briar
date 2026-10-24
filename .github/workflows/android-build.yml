@@ -75,8 +75,9 @@ jobs:
           emulator-options: -no-window -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            APK="briar-android/build/outputs/apk/official/debug/briar-android-official-debug.apk"
-            test -f "$APK"
+            APK=$(find briar-android/build/outputs/apk -type f -name '*.apk' -print -quit)
+            echo "Using APK: $APK"
+            test -n "$APK"
             adb install -r "$APK"
             adb shell am force-stop org.briarproject.briar.android.debug
             adb shell monkey -p org.briarproject.briar.android.debug 1
