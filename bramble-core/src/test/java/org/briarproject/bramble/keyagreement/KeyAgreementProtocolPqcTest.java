@@ -47,6 +47,7 @@ public class KeyAgreementProtocolPqcTest extends BrambleTestCase {
             oneOf(transport).sendPqCapabilities(with(any(PostQuantumCapabilities.class)));
             oneOf(transport).receivePqCapabilities();
             will(returnValue(PostQuantumCapabilities.local(false)));
+            oneOf(transport).sendAbort(false);
             never(transport).sendKey(with(any(byte[].class)));
             never(transport).receiveKey();
         }});
