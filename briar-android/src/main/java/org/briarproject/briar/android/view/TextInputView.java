@@ -7,7 +7,7 @@ import android.graphics.Rect;
 import android.os.Parcelable;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
-import android.view.View;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 
 import org.briarproject.briar.R;
@@ -28,135 +28,62 @@ import static java.util.Objects.requireNonNull;
 @ParametersNotNullByDefault
 public class TextInputView extends LinearLayout {
 
-	@Nullable
-	TextSendController textSendController;
+	@Nullable TextSendController textSendController;
 	final EmojiTextInputView textInput;
-	private final View voiceButton;
+	private final ImageButton voiceButton;
 
-	public TextInputView(Context context) {
-		this(context, null);
-	}
+	public TextInputView(Context context) { this(context, null); }
+	public TextInputView(Context context, @Nullable AttributeSet attrs) { this(context, attrs, 0); }
 
-	public TextInputView(Context context, @Nullable AttributeSet attrs) {
-		this(context, attrs, 0);
-	}
-
-	public TextInputView(Context context, @Nullable AttributeSet attrs,
-			int defStyleAttr) {
+	public TextInputView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
 		super(context, attrs, defStyleAttr);
 		setSaveEnabled(true);
 		setOrientation(VERTICAL);
 		setLayoutTransition(new LayoutTransition());
-
-		LayoutInflater inflater = (LayoutInflater) requireNonNull(
-				context.getSystemService(LAYOUT_INFLATER_SERVICE));
+		LayoutInflater inflater = (LayoutInflater) requireNonNull(context.getSystemService(LAYOUT_INFLATER_SERVICE));
 		inflater.inflate(getLayout(), this, true);
-
-		TypedArray attributes = context.obtainStyledAttributes(attrs,
-				R.styleable.TextInputView);
+		TypedArray attributes = context.obtainStyledAttributes(attrs, R.styleable.TextInputView);
 		String hint = attributes.getString(R.styleable.TextInputView_hint);
-		boolean allowEmptyText = attributes
-				.getBoolean(R.styleable.TextInputView_allowEmptyText, false);
+		boolean allowEmptyText = attributes.getBoolean(R.styleable.TextInputView_allowEmptyText, false);
 		attributes.recycle();
-
 		textInput = findViewById(R.id.emojiTextInput);
 		voiceButton = findViewById(R.id.voiceButton);
 		textInput.setAllowEmptyText(allowEmptyText);
 		if (hint != null) textInput.setHint(hint);
 	}
 
-	@LayoutRes
-	protected int getLayout() {
-		return R.layout.text_input_view;
-	}
+	@LayoutRes protected int getLayout() { return R.layout.text_input_view; }
 
-	@Nullable
-	@Override
-	protected Parcelable onSaveInstanceState() {
+	@Nullable @Override protected Parcelable onSaveInstanceState() {
 		Parcelable superState = super.onSaveInstanceState();
-		if (textSendController != null) {
-			superState = textSendController.onSaveInstanceState(superState);
-		}
+		if (textSendController != null) superState = textSendController.onSaveInstanceState(superState);
 		return superState;
 	}
 
-	@Override
-	protected void onRestoreInstanceState(Parcelable state) {
-		if (textSendController != null) {
-			Parcelable outState =
-					textSendController.onRestoreInstanceState(state);
-			super.onRestoreInstanceState(outState);
-		} else {
-			super.onRestoreInstanceState(state);
-		}
+	@Override protected void onRestoreInstanceState(Parcelable state) {
+		if (textSendController != null) super.onRestoreInstanceState(textSendController.onRestoreInstanceState(state));
+		else super.onRestoreInstanceState(state);
 	}
 
 	public <T extends TextSendController> void setSendController(T controller) {
 		textSendController = controller;
 		textInput.setTextInputListener(textSendController);
 	}
-
-	public void setOnVoiceClickListener(@Nullable OnClickListener listener) {
-		voiceButton.setOnClickListener(listener);
-	}
-
+	public void setOnVoiceClickListener(@Nullable OnClickListener listener) { voiceButton.setOnClickListener(listener); }
 	public void setVoiceRecording(boolean recording) {
-		voiceButton.setImageResource(recording ?
-				android.R.drawable.ic_media_pause :
-				android.R.drawable.ic_btn_speak_now);
-		voiceButton.setContentDescription(recording ?
-				"Stop voice recording" : "Record voice message");
+		voiceButton.setImageResource(recording ? android.R.drawable.ic_media_pause : android.R.drawable.ic_btn_speak_now);
+		voiceButton.setContentDescription(recording ? "Stop voice recording" : "Record voice message");
 	}
-
-	public void setVoiceEnabled(boolean enabled) {
-		voiceButton.setEnabled(enabled);
-	}
-
-	@Override
-	public void setEnabled(boolean enabled) {
-		throw new RuntimeException("Use controllers to enable/disable");
-	}
-
-	public void setReady(boolean ready) {
-		requireNonNull(textSendController).setReady(ready);
-	}
-
-	@Override
-	public boolean requestFocus(int direction, Rect previouslyFocusedRect) {
-		return textInput.requestFocus(direction, previouslyFocusedRect);
-	}
-
-	EmojiTextInputView getEmojiTextInputView() {
-		return textInput;
-	}
-
-	public void clearText() {
-		textInput.clearText();
-	}
-
-	public void setHint(@StringRes int res) {
-		textInput.setHint(getContext().getString(res));
-	}
-
-	public void setMaxTextLength(int maxLength) {
-		textInput.setMaxLength(maxLength);
-	}
-
-	public boolean isKeyboardOpen() {
-		return textInput.isKeyboardOpen();
-	}
-
-	public void showSoftKeyboard() {
-		textInput.showSoftKeyboard();
-	}
-
-	public void hideSoftKeyboard() {
-		textInput.hideSoftKeyboard();
-	}
-
-	public void setOnKeyboardShownListener(
-			@Nullable OnKeyboardShownListener listener) {
-		textInput.setOnKeyboardShownListener(listener);
-	}
-
+	public void setVoiceEnabled(boolean enabled) { voiceButton.setEnabled(enabled); }
+	@Override public void setEnabled(boolean enabled) { throw new RuntimeException("Use controllers to enable/disable"); }
+	public void setReady(boolean ready) { requireNonNull(textSendController).setReady(ready); }
+	@Override public boolean requestFocus(int direction, Rect previouslyFocusedRect) { return textInput.requestFocus(direction, previouslyFocusedRect); }
+	EmojiTextInputView getEmojiTextInputView() { return textInput; }
+	public void clearText() { textInput.clearText(); }
+	public void setHint(@StringRes int res) { textInput.setHint(getContext().getString(res)); }
+	public void setMaxTextLength(int maxLength) { textInput.setMaxLength(maxLength); }
+	public boolean isKeyboardOpen() { return textInput.isKeyboardOpen(); }
+	public void showSoftKeyboard() { textInput.showSoftKeyboard(); }
+	public void hideSoftKeyboard() { textInput.hideSoftKeyboard(); }
+	public void setOnKeyboardShownListener(@Nullable OnKeyboardShownListener listener) { textInput.setOnKeyboardShownListener(listener); }
 }
