@@ -47,7 +47,7 @@
 			<TextView
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"
-				android:text="Recording"
+				android:text="@string/voice_recording"
 				android:textAppearance="?android:attr/textAppearanceSmall"
 				android:textStyle="bold" />
 
@@ -68,27 +68,27 @@
 				android:layout_width="2dp"
 				android:layout_height="10dp"
 				android:layout_marginStart="2dp"
-				android:background="?android:attr/colorControlNormal" />
+				android:background="?attr/colorControlNormal" />
 			<View
 				android:layout_width="2dp"
 				android:layout_height="18dp"
 				android:layout_marginStart="2dp"
-				android:background="?android:attr/colorControlNormal" />
+				android:background="?attr/colorControlNormal" />
 			<View
 				android:layout_width="2dp"
 				android:layout_height="24dp"
 				android:layout_marginStart="2dp"
-				android:background="?android:attr/colorControlNormal" />
+				android:background="?attr/colorControlNormal" />
 			<View
 				android:layout_width="2dp"
 				android:layout_height="14dp"
 				android:layout_marginStart="2dp"
-				android:background="?android:attr/colorControlNormal" />
+				android:background="?attr/colorControlNormal" />
 			<View
 				android:layout_width="2dp"
 				android:layout_height="20dp"
 				android:layout_marginStart="2dp"
-				android:background="?android:attr/colorControlNormal" />
+				android:background="?attr/colorControlNormal" />
 		</LinearLayout>
 
 		<androidx.appcompat.widget.AppCompatImageButton
@@ -96,7 +96,7 @@
 			android:layout_width="@dimen/text_input_height"
 			android:layout_height="@dimen/text_input_height"
 			android:background="?attr/selectableItemBackground"
-			android:contentDescription="Record voice message"
+			android:contentDescription="@string/record_voice_message"
 			android:padding="8dp"
 			android:scaleType="center"
 			android:src="@android:drawable/ic_btn_speak_now"
