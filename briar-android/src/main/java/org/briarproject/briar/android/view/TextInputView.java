@@ -7,6 +7,7 @@ import android.graphics.Rect;
 import android.os.Parcelable;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.LinearLayout;
 
 import org.briarproject.briar.R;
@@ -30,6 +31,7 @@ public class TextInputView extends LinearLayout {
 	@Nullable
 	TextSendController textSendController;
 	final EmojiTextInputView textInput;
+	private final View voiceButton;
 
 	public TextInputView(Context context) {
 		this(context, null);
@@ -46,12 +48,10 @@ public class TextInputView extends LinearLayout {
 		setOrientation(VERTICAL);
 		setLayoutTransition(new LayoutTransition());
 
-		// inflate layout
 		LayoutInflater inflater = (LayoutInflater) requireNonNull(
 				context.getSystemService(LAYOUT_INFLATER_SERVICE));
 		inflater.inflate(getLayout(), this, true);
 
-		// get attributes
 		TypedArray attributes = context.obtainStyledAttributes(attrs,
 				R.styleable.TextInputView);
 		String hint = attributes.getString(R.styleable.TextInputView_hint);
@@ -60,6 +60,7 @@ public class TextInputView extends LinearLayout {
 		attributes.recycle();
 
 		textInput = findViewById(R.id.emojiTextInput);
+		voiceButton = findViewById(R.id.voiceButton);
 		textInput.setAllowEmptyText(allowEmptyText);
 		if (hint != null) textInput.setHint(hint);
 	}
@@ -90,12 +91,17 @@ public class TextInputView extends LinearLayout {
 		}
 	}
 
-	/**
-	 * Call this in onCreate() before any other methods of this class.
-	 */
 	public <T extends TextSendController> void setSendController(T controller) {
 		textSendController = controller;
 		textInput.setTextInputListener(textSendController);
+	}
+
+	public void setOnVoiceClickListener(@Nullable OnClickListener listener) {
+		voiceButton.setOnClickListener(listener);
+	}
+
+	public void setVoiceEnabled(boolean enabled) {
+		voiceButton.setEnabled(enabled);
 	}
 
 	@Override
