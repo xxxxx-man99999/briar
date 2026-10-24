@@ -171,10 +171,50 @@ public class TextAttachmentController extends TextSendController implements Imag
 	@Override @Nullable public Parcelable onRestoreInstanceState(Parcelable inState) { SavedState state = (SavedState) inState; if (!imageUris.isEmpty()) throw new AssertionError(); if (state.imageUris != null) onNewUris(true, state.imageUris); return state.getSuperState(); }
 	@Override public void onCancel() { textInput.clearText(); if (recordingVoice) { voiceRecorder.cancel(); recordingVoice = false; inputView.setVoiceRecording(false); } if (voiceOutput != null) { voiceOutput.delete(); voiceOutput = null; } attachmentManager.cancel(); reset(); }
 	@UiThread private void onError(@Nullable String errorMsg) { if (errorMsg == null) errorMsg = imagePreview.getContext().getString(R.string.image_attach_error); Toast.makeText(textInput.getContext(), errorMsg, LENGTH_LONG).show(); onCancel(); }
-	public void showImageOnboarding(Activity activity) {
-		int color = ContextCompat.getColor(activity, R.color.briar_primary); Drawable drawable = VectorDrawableCompat.create(activity.getResources(), R.drawable.ic_image, null);
-		new MaterialTapTargetPrompt.Builder(activity, R.style.OnboardingDialogTheme).setTarget(sendButton).setPrimaryText(R.string.dialog_title_image_support).setSecondaryText(R.string.dialog_message_image_support).setBackgroundColour(color).setIconDrawable(drawable).show();
+
+	public void showImageOnboarding(Activity activity) { showImageOnboarding(activity, null); }
+	public void showImageOnboarding(Activity activity, @Nullable Runnable next) {
+		int color = ContextCompat.getColor(activity, R.color.briar_primary);
+		Drawable drawable = VectorDrawableCompat.create(activity.getResources(), R.drawable.ic_image, null);
+		new MaterialTapTargetPrompt.Builder(activity, R.style.OnboardingDialogTheme)
+				.setTarget(sendButton)
+				.setPrimaryText(R.string.dialog_title_image_support)
+				.setSecondaryText(R.string.dialog_message_image_support)
+				.setBackgroundColour(color)
+				.setIconDrawable(drawable)
+				.setPromptStateChangeListener((prompt, state) -> {
+					if (state == MaterialTapTargetPrompt.STATE_FOCAL_PRESSED && next != null) next.run();
+				})
+				.show();
 	}
+
+	public void showVoiceOnboarding(Activity activity, @Nullable Runnable next) {
+		int color = ContextCompat.getColor(activity, R.color.briar_primary);
+		Drawable drawable = activity.getResources().getDrawable(android.R.drawable.ic_btn_speak_now);
+		new MaterialTapTargetPrompt.Builder(activity, R.style.OnboardingDialogTheme)
+				.setTarget(inputView.getVoiceButton())
+				.setPrimaryText(R.string.voice_onboarding_title)
+				.setSecondaryText(R.string.voice_onboarding_text)
+				.setBackgroundColour(color)
+				.setIconDrawable(drawable)
+				.setPromptStateChangeListener((prompt, state) -> {
+					if (state == MaterialTapTargetPrompt.STATE_FOCAL_PRESSED && next != null) next.run();
+				})
+				.show();
+	}
+
+	public void showEmojiOnboarding(Activity activity) {
+		int color = ContextCompat.getColor(activity, R.color.briar_primary);
+		Drawable drawable = inputView.getEmojiTextInputView().getEmojiToggleView().getDrawable();
+		new MaterialTapTargetPrompt.Builder(activity, R.style.OnboardingDialogTheme)
+				.setTarget(inputView.getEmojiTextInputView().getEmojiToggleView())
+				.setPrimaryText(R.string.emoji_onboarding_title)
+				.setSecondaryText(R.string.emoji_onboarding_text)
+				.setBackgroundColour(color)
+				.setIconDrawable(drawable)
+				.show();
+	}
+
 	private static class SavedState extends AbsSavedState {
 		@Nullable private List<Uri> imageUris; private SavedState(Parcelable superState) { super(superState); }
 		private SavedState(Parcel in) { super(in); //noinspection unchecked
