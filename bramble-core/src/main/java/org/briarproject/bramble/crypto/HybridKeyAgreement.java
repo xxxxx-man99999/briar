@@ -14,12 +14,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 
-/**
- * Hybrid classical + post-quantum key agreement primitive.
- *
- * The existing Briar agreement remains the authentication mechanism. This
- * class provides the ML-KEM-768 half and a domain-separated combiner.
- */
+/** Hybrid classical + post-quantum key agreement primitive using ML-KEM-768. */
 @NotNullByDefault
 public final class HybridKeyAgreement {
 
@@ -30,9 +25,8 @@ public final class HybridKeyAgreement {
 
 	public static boolean isSupported() {
 		try {
-			MLKEMGenerator generator = new MLKEMGenerator(new SecureRandom());
-			generator.generateEncapsulated(new MLKEMPublicKeyParameters(
-					MLKEMParameters.ml_kem_768, new byte[1184]));
+			new MLKEMGenerator(new SecureRandom());
+			new MLKEMExtractor(null);
 			return true;
 		} catch (Exception e) {
 			return false;
