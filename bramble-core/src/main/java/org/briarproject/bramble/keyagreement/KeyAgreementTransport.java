@@ -25,6 +25,8 @@ import static org.briarproject.bramble.api.keyagreement.RecordTypes.ABORT;
 import static org.briarproject.bramble.api.keyagreement.RecordTypes.CONFIRM;
 import static org.briarproject.bramble.api.keyagreement.RecordTypes.KEY;
 import static org.briarproject.bramble.api.keyagreement.RecordTypes.PQ_CAPABILITIES;
+import static org.briarproject.bramble.api.keyagreement.RecordTypes.PQ_CIPHERTEXT;
+import static org.briarproject.bramble.api.keyagreement.RecordTypes.PQ_PUBLIC_KEY;
 import static org.briarproject.bramble.util.LogUtils.logException;
 
 /**
@@ -40,19 +42,18 @@ class KeyAgreementTransport {
 	private static final Logger LOG =
 			Logger.getLogger(KeyAgreementTransport.class.getName());
 
-	// Accept records with current protocol version, known record type
 	private static final RecordPredicate ACCEPT = r ->
 			r.getProtocolVersion() == PROTOCOL_VERSION &&
 					isKnownRecordType(r.getRecordType());
 
-	// Ignore records with current protocol version, unknown record type
 	private static final RecordPredicate IGNORE = r ->
 			r.getProtocolVersion() == PROTOCOL_VERSION &&
 					!isKnownRecordType(r.getRecordType());
 
 	private static boolean isKnownRecordType(byte type) {
 		return type == KEY || type == CONFIRM || type == ABORT
-				|| type == PQ_CAPABILITIES;
+				|| type == PQ_CAPABILITIES || type == PQ_PUBLIC_KEY
+				|| type == PQ_CIPHERTEXT;
 	}
 
 	private final KeyAgreementConnection kac;
@@ -90,10 +91,6 @@ class KeyAgreementTransport {
 		writeRecord(PQ_CAPABILITIES, PostQuantumCapabilitiesCodec.encode(capabilities));
 	}
 
-	/**
-	 * Receives the peer capability advertisement. If the peer is legacy and
-	 * sends KEY first, that record is buffered for the normal BQP receiveKey().
-	 */
 	PostQuantumCapabilities receivePqCapabilities() throws AbortException {
 		try {
 			Record record = readNextRecord();
@@ -109,6 +106,22 @@ class KeyAgreementTransport {
 		} catch (IOException e) {
 			throw new AbortException(e);
 		}
+	}
+
+	void sendPqPublicKey(byte[] publicKey) throws IOException {
+		writeRecord(PQ_PUBLIC_KEY, publicKey);
+	}
+
+	byte[] receivePqPublicKey() throws AbortException {
+		return readRecord(PQ_PUBLIC_KEY);
+	}
+
+	void sendPqCiphertext(byte[] ciphertext) throws IOException {
+		writeRecord(PQ_CIPHERTEXT, ciphertext);
+	}
+
+	byte[] receivePqCiphertext() throws AbortException {
+		return readRecord(PQ_CIPHERTEXT);
 	}
 
 	void sendConfirm(byte[] confirm) throws IOException {
