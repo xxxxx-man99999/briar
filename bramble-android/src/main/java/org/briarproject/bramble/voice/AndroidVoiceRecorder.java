@@ -34,12 +34,23 @@ public final class AndroidVoiceRecorder {
 		r.setAudioSource(MediaRecorder.AudioSource.MIC);
 		r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
 		r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+		// Keep the bitrate low for cellular transfer, but don't force a sampling
+		// rate. Some older Android/Samsung AAC encoders reject 16 kHz even though
+		// they support AAC/MPEG-4 perfectly well.
 		r.setAudioEncodingBitRate(24000);
-		r.setAudioSamplingRate(16000);
 		r.setMaxDuration(MAX_DURATION_MS);
 		r.setOutputFile(output.getAbsolutePath());
-		r.prepare();
+		try {
+			r.prepare();
 		r.start();
+		} catch (RuntimeException e) {
+			try {
+				r.reset();
+			} finally {
+				r.release();
+			}
+			throw new IOException("Unable to start AAC voice recorder", e);
+		}
 		recorder = r;
 		startedAt = System.currentTimeMillis();
 	}
