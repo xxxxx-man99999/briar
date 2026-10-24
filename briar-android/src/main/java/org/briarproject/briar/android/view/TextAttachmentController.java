@@ -173,8 +173,7 @@ public class TextAttachmentController extends TextSendController implements Imag
 	@UiThread private void onError(@Nullable String errorMsg) { if (errorMsg == null) errorMsg = imagePreview.getContext().getString(R.string.image_attach_error); Toast.makeText(textInput.getContext(), errorMsg, LENGTH_LONG).show(); onCancel(); }
 
 	public void showImageOnboarding(Activity activity) {
-		showImageOnboarding(activity, () ->
-				showVoiceOnboarding(activity, () -> showEmojiOnboarding(activity)));
+		showImageOnboarding(activity, () -> showVoiceOnboarding(activity, () -> showEmojiOnboarding(activity)));
 	}
 	public void showImageOnboarding(Activity activity, @Nullable Runnable next) {
 		int color = ContextCompat.getColor(activity, R.color.briar_primary);
@@ -223,7 +222,7 @@ public class TextAttachmentController extends TextSendController implements Imag
 		private SavedState(Parcel in) { super(in); //noinspection unchecked
 			imageUris = in.readArrayList(Uri.class.getClassLoader()); }
 		@Override public void writeToParcel(Parcel out, int flags) { super.writeToParcel(out, flags); out.writeList(imageUris); }
-		public static final Creator<SavedState> CREATOR = new Creator<SavedState>() { @Override public SavedState createFromParcel(Parcel in) { return new SavedState(in); } @Override public SavedState[] newArray(int size) { return new SavedState[]{}; } };
+		public static final Creator<SavedState> CREATOR = new Creator<SavedState>() { @Override public SavedState createFromParcel(Parcel in) { return new SavedState(in); } @Override public SavedState[] newArray(int size) { return new SavedState[size]; } };
 	}
 	@UiThread public interface AttachmentListener extends SendListener { void onAttachImageClicked(); void onTooManyAttachments(); }
 }
