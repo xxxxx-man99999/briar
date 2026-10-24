@@ -26,7 +26,6 @@ public final class HybridKeyAgreement {
 	public static boolean isSupported() {
 		try {
 			new MLKEMGenerator(new SecureRandom());
-			new MLKEMExtractor(null);
 			return true;
 		} catch (Exception e) {
 			return false;
