@@ -9,6 +9,7 @@ import org.junit.Test;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -31,11 +32,12 @@ public class HybridKeyAgreementIntegrationTest {
 
 		byte[] classical = new byte[32];
 		Arrays.fill(classical, (byte) 0x42);
+		byte[] context = new byte[] {1, 2, 3, 4};
 		byte[] aliceHybrid = HybridKeyAgreement.combine(
-				classical, encapsulation.getSecret());
+				classical, encapsulation.getSecret(), context);
 		byte[] bobHybrid = HybridKeyAgreement.combine(
-				classical, bobKemSecret);
-		assertTrue(Arrays.equals(aliceHybrid, bobHybrid));
+				classical, bobKemSecret, context);
+		assertArrayEquals(aliceHybrid, bobHybrid);
 	}
 
 	@Test
@@ -49,6 +51,39 @@ public class HybridKeyAgreementIntegrationTest {
 
 		byte[] first = HybridKeyAgreement.combine(classical, kemA);
 		byte[] second = HybridKeyAgreement.combine(classical, kemB);
+		assertFalse(Arrays.equals(first, second));
+	}
+
+	@Test
+	public void hybridSecretIsBoundToClassicalSecret() throws GeneralSecurityException {
+		byte[] classicalA = new byte[32];
+		byte[] classicalB = new byte[32];
+		byte[] kem = new byte[32];
+		Arrays.fill(classicalA, (byte) 0x01);
+		Arrays.fill(classicalB, (byte) 0x02);
+		byte[] first = HybridKeyAgreement.combine(classicalA, kem);
+		byte[] second = HybridKeyAgreement.combine(classicalB, kem);
+		assertFalse(Arrays.equals(first, second));
+	}
+
+	@Test
+	public void hybridSecretIsBoundToTranscriptContext() throws GeneralSecurityException {
+		byte[] classical = new byte[32];
+		byte[] kem = new byte[32];
+		byte[] contextA = new byte[] {1, 2, 3};
+		byte[] contextB = new byte[] {1, 2, 4};
+		byte[] first = HybridKeyAgreement.combine(classical, kem, contextA);
+		byte[] second = HybridKeyAgreement.combine(classical, kem, contextB);
+		assertFalse(Arrays.equals(first, second));
+	}
+
+	@Test
+	public void lengthPrefixPreventsAmbiguousContextInputs()
+			throws GeneralSecurityException {
+		byte[] classical = new byte[] {1};
+		byte[] kem = new byte[] {2};
+		byte[] first = HybridKeyAgreement.combine(classical, kem, new byte[] {3, 4});
+		byte[] second = HybridKeyAgreement.combine(classical, kem, new byte[] {3, 4, 5});
 		assertFalse(Arrays.equals(first, second));
 	}
 }
