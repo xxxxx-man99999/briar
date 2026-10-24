@@ -18,6 +18,7 @@ import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -155,7 +156,7 @@ class AttachmentRetrieverImpl implements AttachmentRetriever {
 	@Override
 	public AttachmentItem createAttachmentItem(Attachment a, boolean needsSize) {
 		AttachmentHeader h = a.getHeader();
-		if (VOICE_MIME_TYPE.equals(h.getContentType()) || "audio/x-m4a".equals(h.getContentType())) {
+		if (isVoiceContentType(h.getContentType())) {
 			return new AttachmentItem(h, defaultSize, defaultSize, VOICE_EXTENSION,
 					defaultSize, defaultSize, AVAILABLE);
 		}
@@ -172,8 +173,13 @@ class AttachmentRetrieverImpl implements AttachmentRetriever {
 	}
 
 	private boolean isSupportedContentType(String mimeType) {
-		return isImageContentType(mimeType) || VOICE_MIME_TYPE.equals(mimeType)
-				|| "audio/x-m4a".equals(mimeType);
+		return isImageContentType(mimeType) || isVoiceContentType(mimeType);
+	}
+
+	private boolean isVoiceContentType(String mimeType) {
+		return VOICE_MIME_TYPE.equals(mimeType)
+				|| "audio/x-m4a".equals(mimeType)
+				|| (mimeType != null && mimeType.toLowerCase(Locale.ROOT).startsWith("audio/"));
 	}
 
 	private boolean isImageContentType(String mimeType) {
