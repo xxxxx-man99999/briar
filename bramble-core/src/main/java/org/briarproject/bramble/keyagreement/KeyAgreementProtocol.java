@@ -25,21 +25,14 @@ import static org.briarproject.bramble.api.keyagreement.KeyAgreementConstants.PR
 import static org.briarproject.bramble.api.keyagreement.KeyAgreementConstants.SHARED_SECRET_LABEL;
 
 /**
- * Implementation of the BQP protocol.
- *
- * <p>The classical BQP exchange remains mandatory. When PQ is enabled by the
- * caller, both peers first exchange a backward-compatible capability record.
- * If both support ML-KEM-768, the classical secret is combined with an
- * ML-KEM secret and a transcript context before confirmations are generated.
- * Legacy peers fall back to the unchanged classical flow.</p>
+ * BQP protocol with mandatory hybrid classical + ML-KEM-768 key agreement.
+ * A session cannot succeed with a classical-only key.
  */
 @NotNullByDefault
 class KeyAgreementProtocol {
 
 	interface Callbacks {
-
 		void connectionWaiting();
-
 		void initialRecordReceived();
 	}
 
@@ -51,16 +44,16 @@ class KeyAgreementProtocol {
 	private final Payload theirPayload, ourPayload;
 	private final KeyPair ourKeyPair;
 	private final boolean alice;
-	private final boolean pqEnabled;
 
 	KeyAgreementProtocol(Callbacks callbacks, CryptoComponent crypto,
 			KeyAgreementCrypto keyAgreementCrypto, PayloadEncoder payloadEncoder,
 			KeyAgreementTransport transport, Payload theirPayload,
 			Payload ourPayload, KeyPair ourKeyPair, boolean alice) {
 		this(callbacks, crypto, keyAgreementCrypto, payloadEncoder, transport,
-				theirPayload, ourPayload, ourKeyPair, alice, false);
+				theirPayload, ourPayload, ourKeyPair, alice, true);
 	}
 
+	// pqEnabled is retained for source compatibility; PQ is now mandatory.
 	KeyAgreementProtocol(Callbacks callbacks, CryptoComponent crypto,
 			KeyAgreementCrypto keyAgreementCrypto, PayloadEncoder payloadEncoder,
 			KeyAgreementTransport transport, Payload theirPayload,
@@ -75,20 +68,16 @@ class KeyAgreementProtocol {
 		this.ourPayload = ourPayload;
 		this.ourKeyPair = ourKeyPair;
 		this.alice = alice;
-		this.pqEnabled = pqEnabled;
 	}
 
 	SecretKey perform() throws AbortException, IOException {
 		try {
-			PostQuantumCapabilities localPq = null;
-			PostQuantumCapabilities peerPq = null;
-			boolean usePq = false;
-			if (pqEnabled) {
-				localPq = PostQuantumCapabilities.local(HybridKeyAgreement.isSupported());
-				transport.sendPqCapabilities(localPq);
-				peerPq = transport.receivePqCapabilities();
-				usePq = localPq.canUseHybridWith(peerPq);
-			}
+			if (!HybridKeyAgreement.isSupported()) throw new AbortException();
+
+			PostQuantumCapabilities localPq = PostQuantumCapabilities.local(true);
+			transport.sendPqCapabilities(localPq);
+			PostQuantumCapabilities peerPq = transport.receivePqCapabilities();
+			if (!localPq.canUseHybridWith(peerPq)) throw new AbortException();
 
 			PublicKey theirPublicKey;
 			if (alice) {
@@ -99,17 +88,18 @@ class KeyAgreementProtocol {
 				theirPublicKey = receiveKey();
 				sendKey();
 			}
-			SecretKey s = deriveSharedSecret(theirPublicKey);
-			if (usePq)
-				s = deriveHybridSecret(s, localPq, peerPq);
+
+			SecretKey classical = deriveSharedSecret(theirPublicKey);
+			SecretKey sessionSecret = deriveHybridSecret(classical, localPq, peerPq);
+
 			if (alice) {
-				sendConfirm(s, theirPublicKey);
-				receiveConfirm(s, theirPublicKey);
+				sendConfirm(sessionSecret, theirPublicKey);
+				receiveConfirm(sessionSecret, theirPublicKey);
 			} else {
-				receiveConfirm(s, theirPublicKey);
-				sendConfirm(s, theirPublicKey);
+				receiveConfirm(sessionSecret, theirPublicKey);
+				sendConfirm(sessionSecret, theirPublicKey);
 			}
-			return crypto.deriveKey(MASTER_KEY_LABEL, s);
+			return crypto.deriveKey(MASTER_KEY_LABEL, sessionSecret);
 		} catch (AbortException e) {
 			sendAbort(e.getCause() != null);
 			throw e;
@@ -127,16 +117,14 @@ class KeyAgreementProtocol {
 		try {
 			PublicKey publicKey = keyParser.parsePublicKey(publicKeyBytes);
 			byte[] expected = keyAgreementCrypto.deriveKeyCommitment(publicKey);
-			if (!Arrays.equals(expected, theirPayload.getCommitment()))
-				throw new AbortException();
+			if (!Arrays.equals(expected, theirPayload.getCommitment())) throw new AbortException();
 			return publicKey;
 		} catch (GeneralSecurityException e) {
 			throw new AbortException();
 		}
 	}
 
-	private SecretKey deriveSharedSecret(PublicKey theirPublicKey)
-			throws AbortException {
+	private SecretKey deriveSharedSecret(PublicKey theirPublicKey) throws AbortException {
 		try {
 			byte[] ourPublicKeyBytes = ourKeyPair.getPublic().getEncoded();
 			byte[] theirPublicKeyBytes = theirPublicKey.getEncoded();
@@ -145,8 +133,7 @@ class KeyAgreementProtocol {
 					alice ? ourPublicKeyBytes : theirPublicKeyBytes,
 					alice ? theirPublicKeyBytes : ourPublicKeyBytes
 			};
-			return crypto.deriveSharedSecret(SHARED_SECRET_LABEL,
-					theirPublicKey, ourKeyPair, inputs);
+			return crypto.deriveSharedSecret(SHARED_SECRET_LABEL, theirPublicKey, ourKeyPair, inputs);
 		} catch (GeneralSecurityException e) {
 			throw new AbortException(e);
 		}
@@ -156,10 +143,8 @@ class KeyAgreementProtocol {
 			PostQuantumCapabilities localPq, PostQuantumCapabilities peerPq)
 			throws AbortException {
 		try {
-			byte[] aliceCapabilities = PostQuantumCapabilitiesCodec.encode(
-					alice ? localPq : peerPq);
-			byte[] bobCapabilities = PostQuantumCapabilitiesCodec.encode(
-					alice ? peerPq : localPq);
+			byte[] aliceCapabilities = PostQuantumCapabilitiesCodec.encode(localPq);
+			byte[] bobCapabilities = PostQuantumCapabilitiesCodec.encode(peerPq);
 			byte[] kemPublicKey;
 			byte[] kemCiphertext;
 			byte[] kemSecret;
@@ -172,18 +157,14 @@ class KeyAgreementProtocol {
 						(MLKEMPrivateKeyParameters) pair.getPrivate(), kemCiphertext);
 			} else {
 				kemPublicKey = transport.receivePqPublicKey();
-				MLKEMPublicKeyParameters publicKey =
-						HybridKeyAgreement.parsePublicKey(kemPublicKey);
-				HybridKeyAgreement.Encapsulation encapsulation =
-						HybridKeyAgreement.encapsulate(publicKey);
+				MLKEMPublicKeyParameters publicKey = HybridKeyAgreement.parsePublicKey(kemPublicKey);
+				HybridKeyAgreement.Encapsulation encapsulation = HybridKeyAgreement.encapsulate(publicKey);
 				kemCiphertext = encapsulation.getCiphertext();
 				kemSecret = encapsulation.getSecret();
 				transport.sendPqCiphertext(kemCiphertext);
 			}
-			byte[] context = concat(aliceCapabilities, bobCapabilities,
-					kemPublicKey, kemCiphertext);
-			return new SecretKey(HybridKeyAgreement.combine(
-					classical.getBytes(), kemSecret, context));
+			byte[] context = concat(aliceCapabilities, bobCapabilities, kemPublicKey, kemCiphertext);
+			return new SecretKey(HybridKeyAgreement.combine(classical.getBytes(), kemSecret, context));
 		} catch (Exception e) {
 			throw new AbortException(e);
 		}
@@ -201,26 +182,19 @@ class KeyAgreementProtocol {
 		return result;
 	}
 
-	private void sendConfirm(SecretKey s, PublicKey theirPublicKey)
-			throws IOException {
+	private void sendConfirm(SecretKey s, PublicKey theirPublicKey) throws IOException {
 		byte[] confirm = keyAgreementCrypto.deriveConfirmationRecord(s,
-				payloadEncoder.encode(theirPayload),
-				payloadEncoder.encode(ourPayload),
-				theirPublicKey, ourKeyPair,
-				alice, alice);
+				payloadEncoder.encode(theirPayload), payloadEncoder.encode(ourPayload),
+				theirPublicKey, ourKeyPair, alice, alice);
 		transport.sendConfirm(confirm);
 	}
 
-	private void receiveConfirm(SecretKey s, PublicKey theirPublicKey)
-			throws AbortException {
+	private void receiveConfirm(SecretKey s, PublicKey theirPublicKey) throws AbortException {
 		byte[] confirm = transport.receiveConfirm();
 		byte[] expected = keyAgreementCrypto.deriveConfirmationRecord(s,
-				payloadEncoder.encode(theirPayload),
-				payloadEncoder.encode(ourPayload),
-				theirPublicKey, ourKeyPair,
-				alice, !alice);
-		if (!Arrays.equals(expected, confirm))
-			throw new AbortException();
+				payloadEncoder.encode(theirPayload), payloadEncoder.encode(ourPayload),
+				theirPublicKey, ourKeyPair, alice, !alice);
+		if (!Arrays.equals(expected, confirm)) throw new AbortException();
 	}
 
 	private void sendAbort(boolean exception) {
