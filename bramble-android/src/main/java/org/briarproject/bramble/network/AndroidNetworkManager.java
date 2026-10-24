@@ -10,14 +10,18 @@ import android.net.ConnectivityManager;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.Build;
+import android.telephony.TelephonyManager;
 
 import org.briarproject.bramble.api.Cancellable;
 import org.briarproject.bramble.api.event.EventBus;
 import org.briarproject.bramble.api.event.EventExecutor;
 import org.briarproject.bramble.api.lifecycle.Service;
+import org.briarproject.bramble.api.network.CellularNetworkType;
 import org.briarproject.bramble.api.network.NetworkManager;
 import org.briarproject.bramble.api.network.NetworkStatus;
 import org.briarproject.bramble.api.network.event.NetworkStatusEvent;
@@ -40,6 +44,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import static android.content.Context.CONNECTIVITY_SERVICE;
+import static android.content.Context.TELEPHONY_SERVICE;
 import static android.content.Context.WIFI_SERVICE;
 import static android.content.Intent.ACTION_SCREEN_OFF;
 import static android.content.Intent.ACTION_SCREEN_ON;
@@ -66,7 +71,6 @@ class AndroidNetworkManager implements NetworkManager, Service {
 	private static final Logger LOG =
 			getLogger(AndroidNetworkManager.class.getName());
 
-	// See android.net.wifi.WifiManager
 	private static final String WIFI_AP_STATE_CHANGED_ACTION =
 			"android.net.wifi.WIFI_AP_STATE_CHANGED";
 
@@ -75,6 +79,7 @@ class AndroidNetworkManager implements NetworkManager, Service {
 	private final Executor eventExecutor;
 	private final Application app;
 	private final ConnectivityManager connectivityManager;
+	private final TelephonyManager telephonyManager;
 	private final AtomicReference<Cancellable> connectivityCheck =
 			new AtomicReference<>();
 	private final AtomicBoolean used = new AtomicBoolean(false);
@@ -90,12 +95,13 @@ class AndroidNetworkManager implements NetworkManager, Service {
 		this.app = app;
 		connectivityManager = (ConnectivityManager)
 				requireNonNull(app.getSystemService(CONNECTIVITY_SERVICE));
+		telephonyManager = (TelephonyManager)
+				requireNonNull(app.getSystemService(TELEPHONY_SERVICE));
 	}
 
 	@Override
 	public void startService() {
 		if (used.getAndSet(true)) throw new IllegalStateException();
-		// Register to receive network status events
 		networkStateReceiver = new NetworkStateReceiver();
 		IntentFilter filter = new IntentFilter();
 		filter.addAction(CONNECTIVITY_ACTION);
@@ -115,29 +121,20 @@ class AndroidNetworkManager implements NetworkManager, Service {
 
 	@Override
 	public NetworkStatus getNetworkStatus() {
-		// https://issuetracker.google.com/issues/175055271
 		try {
 			NetworkInfo net = connectivityManager.getActiveNetworkInfo();
 			boolean connected = net != null && net.isConnected();
-			// Research into Android's behavior to check network connectivity
-			// (https://code.briarproject.org/briar/public-mesh-research/-/issues/19)
-			// has shown that NetworkInfo#isConnected() returns true if the device
-			// is connected to any Wifi, independent of whether any specific IP
-			// address can be reached using it or any domain names can be resolved.
 			boolean wifi = false, ipv6Only = false;
 			if (connected) {
 				wifi = net.getType() == TYPE_WIFI;
 				if (SDK_INT >= 23) ipv6Only = isActiveNetworkIpv6Only();
 				else ipv6Only = areAllAvailableNetworksIpv6Only();
 			}
-			return new NetworkStatus(connected, wifi, ipv6Only);
+			CellularNetworkType cellularType = wifi || !connected
+					? CellularNetworkType.NONE : getCellularNetworkType();
+			return new NetworkStatus(connected, wifi, ipv6Only, cellularType);
 		} catch (SecurityException e) {
 			logException(LOG, WARNING, e);
-			// Without the ConnectivityManager we can't detect whether we have
-			// internet access. Assume we do, which is probably less harmful
-			// than assuming we don't. Likewise, assume the connection is
-			// IPv6-only. Fall back to the WifiManager to detect whether we
-			// have a wifi connection.
 			LOG.info("ConnectivityManager is broken, guessing connectivity");
 			boolean connected = true, wifi = false, ipv6Only = true;
 			WifiManager wm = (WifiManager) app.getSystemService(WIFI_SERVICE);
@@ -149,30 +146,67 @@ class AndroidNetworkManager implements NetworkManager, Service {
 					ipv6Only = false;
 				}
 			}
-			return new NetworkStatus(connected, wifi, ipv6Only);
+			CellularNetworkType cellularType = wifi
+					? CellularNetworkType.NONE : getCellularNetworkType();
+			return new NetworkStatus(connected, wifi, ipv6Only, cellularType);
 		}
 	}
 
-	/**
-	 * Returns true if the
-	 * {@link ConnectivityManager#getActiveNetwork() active network} has an
-	 * IPv6 unicast address and no IPv4 addresses. The active network is
-	 * assumed not to be a loopback interface.
-	 */
+	private CellularNetworkType getCellularNetworkType() {
+		try {
+			if (SDK_INT >= 23) {
+				Network active = connectivityManager.getActiveNetwork();
+				if (active != null) {
+					NetworkCapabilities capabilities =
+							connectivityManager.getNetworkCapabilities(active);
+					if (capabilities != null &&
+							capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+						int type = telephonyManager.getDataNetworkType();
+						return mapTelephonyType(type);
+					}
+				}
+			}
+			return mapTelephonyType(telephonyManager.getNetworkType());
+		} catch (SecurityException e) {
+			logException(LOG, WARNING, e);
+			return CellularNetworkType.UNKNOWN;
+		}
+	}
+
+	private CellularNetworkType mapTelephonyType(int type) {
+		switch (type) {
+			case TelephonyManager.NETWORK_TYPE_GPRS:
+			case TelephonyManager.NETWORK_TYPE_EDGE:
+			case TelephonyManager.NETWORK_TYPE_CDMA:
+			case TelephonyManager.NETWORK_TYPE_1xRTT:
+			case TelephonyManager.NETWORK_TYPE_IDEN:
+				return CellularNetworkType.G2;
+			case TelephonyManager.NETWORK_TYPE_UMTS:
+			case TelephonyManager.NETWORK_TYPE_EVDO_0:
+			case TelephonyManager.NETWORK_TYPE_EVDO_A:
+			case TelephonyManager.NETWORK_TYPE_EVDO_B:
+			case TelephonyManager.NETWORK_TYPE_HSDPA:
+			case TelephonyManager.NETWORK_TYPE_HSUPA:
+			case TelephonyManager.NETWORK_TYPE_HSPA:
+			case TelephonyManager.NETWORK_TYPE_HSPAP:
+			case TelephonyManager.NETWORK_TYPE_EHRPD:
+				return CellularNetworkType.G3;
+			case TelephonyManager.NETWORK_TYPE_LTE:
+				return CellularNetworkType.LTE;
+			case TelephonyManager.NETWORK_TYPE_NR:
+				return CellularNetworkType.NR;
+			default:
+				return CellularNetworkType.UNKNOWN;
+		}
+	}
+
 	@TargetApi(23)
 	private boolean isActiveNetworkIpv6Only() {
-		// https://issuetracker.google.com/issues/175055271
 		try {
 			Network net = connectivityManager.getActiveNetwork();
-			if (net == null) {
-				LOG.info("No active network");
-				return false;
-			}
+			if (net == null) return false;
 			LinkProperties props = connectivityManager.getLinkProperties(net);
-			if (props == null) {
-				LOG.info("No link properties for active network");
-				return false;
-			}
+			if (props == null) return false;
 			boolean hasIpv6Unicast = false;
 			for (LinkAddress linkAddress : props.getLinkAddresses()) {
 				InetAddress addr = linkAddress.getAddress();
@@ -186,20 +220,10 @@ class AndroidNetworkManager implements NetworkManager, Service {
 		}
 	}
 
-	/**
-	 * Returns true if the device has at least one network interface with an
-	 * IPv6 unicast address and no interfaces with IPv4 addresses, excluding
-	 * loopback interfaces and interfaces that are
-	 * {@link NetworkInterface#isUp() down}. If this method returns true and
-	 * the device has internet access then it's via IPv6 only.
-	 */
 	private boolean areAllAvailableNetworksIpv6Only() {
 		try {
 			Enumeration<NetworkInterface> interfaces = getNetworkInterfaces();
-			if (interfaces == null) {
-				LOG.info("No network interfaces");
-				return false;
-			}
+			if (interfaces == null) return false;
 			boolean hasIpv6Unicast = false;
 			for (NetworkInterface i : list(interfaces)) {
 				if (i.isLoopback() || !i.isUp()) continue;
@@ -220,27 +244,22 @@ class AndroidNetworkManager implements NetworkManager, Service {
 	}
 
 	private void scheduleConnectionStatusUpdate(int delay, TimeUnit unit) {
-		Cancellable newConnectivityCheck =
-				scheduler.schedule(this::updateConnectionStatus, eventExecutor,
-						delay, unit);
+		Cancellable newConnectivityCheck = scheduler.schedule(
+				this::updateConnectionStatus, eventExecutor, delay, unit);
 		Cancellable oldConnectivityCheck =
 				connectivityCheck.getAndSet(newConnectivityCheck);
 		if (oldConnectivityCheck != null) oldConnectivityCheck.cancel();
 	}
 
 	private class NetworkStateReceiver extends BroadcastReceiver {
-
 		@Override
 		public void onReceive(Context ctx, Intent i) {
 			String action = i.getAction();
 			if (LOG.isLoggable(INFO)) LOG.info("Received broadcast " + action);
 			updateConnectionStatus();
 			if (isSleepOrDozeEvent(action)) {
-				// Allow time for the network to be enabled or disabled
 				scheduleConnectionStatusUpdate(1, MINUTES);
 			} else if (isApEvent(action)) {
-				// The state change may be broadcast before the AP address is
-				// visible, so delay handling the event
 				scheduleConnectionStatusUpdate(5, SECONDS);
 			}
 		}
