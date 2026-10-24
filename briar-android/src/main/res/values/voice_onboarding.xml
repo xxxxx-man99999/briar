@@ -1,7 +1,19 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
 	<string name="voice_onboarding_title">Record a voice message</string>
 	<string name="voice_onboarding_text">Tap the microphone to start recording, then tap it again to stop.</string>
 	<string name="emoji_onboarding_title">Add an emoji</string>
 	<string name="emoji_onboarding_text">Tap the emoji button to open the emoji keyboard.</string>
+	<string name="voice_message">Voice message</string>
+	<string name="record_voice_message">Record voice message</string>
+	<string name="stop_voice_recording">Stop voice recording</string>
+	<string name="voice_recording">Recording</string>
+	<string name="play_voice_message">Play voice message</string>
+	<string name="pause_voice_message">Pause voice message</string>
+	<string name="voice_loading">Loading voice message…</string>
+	<string name="voice_ready">Voice message ready</string>
+	<string name="voice_paused">Paused</string>
+	<string name="voice_playing">Playing</string>
+	<string name="voice_finished">Finished</string>
+	<string name="voice_load_error">Unable to load voice message</string>
+	<string name="voice_play_error">Unable to play voice message</string>
 </resources>
