@@ -1,7 +1,6 @@
 package org.briarproject.bramble.voice;
 
 import android.media.MediaRecorder;
-import android.os.Build;
 
 import org.briarproject.bramble.api.voice.VoiceMessage;
 import org.briarproject.nullsafety.NotNullByDefault;
@@ -11,8 +10,8 @@ import java.io.IOException;
 
 /**
  * Small Android voice recorder. The resulting compressed M4A file is suitable
- * for the normal Briar attachment pipeline and can therefore use the same
- * low-bandwidth queue/chunk/resume path as other files.
+ * for the normal Briar attachment pipeline and can use the low-bandwidth
+ * queue/chunk/resume path.
  *
  * The caller must obtain RECORD_AUDIO runtime permission before start().
  */
@@ -31,9 +30,7 @@ public final class AndroidVoiceRecorder {
 		if (parent != null && !parent.exists() && !parent.mkdirs())
 			throw new IOException("Unable to create recording directory");
 
-		MediaRecorder r = Build.VERSION.SDK_INT >= 31
-				? new MediaRecorder(outputFile.getAbsoluteFile().getParentFile() == null ? null : null)
-				: new MediaRecorder();
+		MediaRecorder r = new MediaRecorder();
 		r.setAudioSource(MediaRecorder.AudioSource.MIC);
 		r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
 		r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
@@ -54,7 +51,7 @@ public final class AndroidVoiceRecorder {
 		try {
 			r.stop();
 	} finally {
-		r.release();
+			r.release();
 	}
 		long duration = Math.min(MAX_DURATION_MS, System.currentTimeMillis() - startedAt);
 		return new VoiceMessage(output.getName(), duration, output.length());
