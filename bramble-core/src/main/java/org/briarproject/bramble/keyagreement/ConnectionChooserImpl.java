@@ -49,7 +49,8 @@ class ConnectionChooserImpl implements ConnectionChooser {
 				KeyAgreementConnection c = task.call();
 				if (c != null) addResult(c);
 			} catch (Exception e) {
-				if (LOG.isLoggable(INFO)) LOG.info(e.toString());
+				LOG.log(java.util.logging.Level.WARNING,
+						"Key-agreement connection task failed", e);
 			}
 		});
 	}
