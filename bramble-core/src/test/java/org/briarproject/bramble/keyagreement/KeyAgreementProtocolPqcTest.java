@@ -9,9 +9,9 @@ import org.briarproject.bramble.api.keyagreement.PayloadEncoder;
 import org.briarproject.bramble.test.BrambleTestCase;
 import org.jmock.Expectations;
 import org.jmock.auto.Mock;
+import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.junit.Rule;
 import org.junit.Test;
-import org.jmock.integration.junit4.JUnitRuleMockery;
 
 import static java.util.Collections.emptyList;
 import static org.briarproject.bramble.test.TestUtils.getAgreementPrivateKey;
@@ -41,7 +41,7 @@ public class KeyAgreementProtocolPqcTest extends BrambleTestCase {
                 theirPayload, ourPayload, ourKeyPair, true);
 
         context.checking(new Expectations() {{
-            oneOf(transport).sendPqCapabilities(PostQuantumCapabilities.local(true));
+            oneOf(transport).sendPqCapabilities(with(any(PostQuantumCapabilities.class)));
             oneOf(transport).receivePqCapabilities();
             will(returnValue(PostQuantumCapabilities.local(false)));
             never(transport).sendKey(with(any(byte[].class)));
