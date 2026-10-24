@@ -1,9 +1,7 @@
 package org.briarproject.briar.android.view;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Parcel;
@@ -13,10 +11,10 @@ import android.widget.Toast;
 import com.google.android.material.dialog.AlertDialog.Builder;
 
 import org.briarproject.briar.R;
+import org.briarproject.bramble.voice.AndroidVoiceRecorder;
 import org.briarproject.briar.android.attachment.AttachmentItemResult;
 import org.briarproject.briar.android.attachment.AttachmentManager;
 import org.briarproject.briar.android.attachment.AttachmentResult;
-import org.briarproject.briar.android.attachment.AndroidVoiceRecorder;
 import org.briarproject.briar.android.view.ImagePreview.ImagePreviewListener;
 import org.briarproject.nullsafety.NotNullByDefault;
 
@@ -25,10 +23,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
-import androidx.appcompat.app.AlertDialog;
 import androidx.customview.view.AbsSavedState;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
@@ -38,15 +34,13 @@ import androidx.core.content.ContextCompat;
 import uk.co.samuelwall.materialtaptargetprompt.MaterialTapTargetPrompt;
 
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
-import static android.view.View.GONE;
 import static android.widget.Toast.LENGTH_LONG;
 import static androidx.customview.view.AbsSavedState.EMPTY_STATE;
 import static androidx.lifecycle.Lifecycle.State.DESTROYED;
 import static androidx.core.content.ContextCompat.checkSelfPermission;
+import static android.Manifest.permission.RECORD_AUDIO;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static android.Manifest.permission.RECORD_AUDIO;
-import static org.briarproject.briar.android.attachment.AttachmentItem.State.AVAILABLE;
 import static org.briarproject.briar.android.view.TextSendController.SendState.SENT;
 import static org.briarproject.briar.api.messaging.MessagingConstants.MAX_ATTACHMENTS_PER_MESSAGE;
 
@@ -114,12 +108,9 @@ public class TextAttachmentController extends TextSendController
 
 	@Override
 	protected CharSequence getCurrentTextHint() {
-		if (imageUris.isEmpty()) {
-			return super.getCurrentTextHint();
-		} else {
-			Context ctx = textInput.getContext();
-			return ctx.getString(R.string.image_caption_hint);
-		}
+		if (imageUris.isEmpty()) return super.getCurrentTextHint();
+		Context ctx = textInput.getContext();
+		return ctx.getString(R.string.image_caption_hint);
 	}
 
 	@Override
@@ -148,11 +139,8 @@ public class TextAttachmentController extends TextSendController
 	}
 
 	private void onVoiceButtonClicked() {
-		if (recordingVoice) {
-			stopVoiceRecording();
-		} else {
-			startVoiceRecording();
-		}
+		if (recordingVoice) stopVoiceRecording();
+		else startVoiceRecording();
 	}
 
 	private void startVoiceRecording() {
@@ -214,9 +202,8 @@ public class TextAttachmentController extends TextSendController
 						result.removeObserver(this);
 						listener.onSendClick(null,
 								attachmentManager.getAttachmentHeadersForSending(),
-								expectedTimer).observe(attachmentListener, state -> {
-									onVoiceSendStateChanged(state, output);
-								});
+								expectedTimer).observe(attachmentListener, state ->
+								onVoiceSendStateChanged(state, output));
 					}
 				}
 			});
@@ -250,9 +237,8 @@ public class TextAttachmentController extends TextSendController
 			builder.show();
 			return;
 		}
-		if (attachmentListener.getLifecycle().getCurrentState() != DESTROYED) {
+		if (attachmentListener.getLifecycle().getCurrentState() != DESTROYED)
 			attachmentListener.onAttachImageClicked();
-		}
 	}
 
 	public void onImageReceived(@Nullable List<Uri> newUris) {
@@ -274,16 +260,13 @@ public class TextAttachmentController extends TextSendController
 		updateViewState();
 		List<ImagePreviewItem> items = ImagePreviewItem.fromUris(imageUris);
 		imagePreview.showPreview(items);
-		LiveData<AttachmentResult> result =
-				attachmentManager.storeAttachments(imageUris, restart);
+		LiveData<AttachmentResult> result = attachmentManager.storeAttachments(imageUris, restart);
 		result.observe(attachmentListener, new Observer<AttachmentResult>() {
 			@Override
 			public void onChanged(@Nullable AttachmentResult attachmentResult) {
-				if (attachmentResult == null) {
-					result.removeObserver(this);
-				} else {
-					boolean noError = onNewAttachmentItemResults(
-							attachmentResult.getItemResults());
+				if (attachmentResult == null) result.removeObserver(this);
+				else {
+					boolean noError = onNewAttachmentItemResults(attachmentResult.getItemResults());
 					if (noError && attachmentResult.isFinished()) {
 						onAllAttachmentsCreated();
 						result.removeObserver(this);
@@ -293,16 +276,14 @@ public class TextAttachmentController extends TextSendController
 		});
 	}
 
-	private boolean onNewAttachmentItemResults(
-			Collection<AttachmentItemResult> itemResults) {
+	private boolean onNewAttachmentItemResults(Collection<AttachmentItemResult> itemResults) {
 		if (!loadingUris) throw new AssertionError();
 		for (AttachmentItemResult result : itemResults) {
 			if (result.hasError()) {
 				onError(result.getErrorMsg());
 				return false;
-			} else {
-				imagePreview.loadPreviewImage(result);
 			}
+			imagePreview.loadPreviewImage(result);
 		}
 		return true;
 	}
@@ -354,18 +335,18 @@ public class TextAttachmentController extends TextSendController
 
 	@UiThread
 	private void onError(@Nullable String errorMsg) {
-		if (errorMsg == null) errorMsg = imagePreview.getContext()
-				.getString(R.string.image_attach_error);
+		if (errorMsg == null)
+			errorMsg = imagePreview.getContext().getString(R.string.image_attach_error);
 		Toast.makeText(textInput.getContext(), errorMsg, LENGTH_LONG).show();
 		onCancel();
 	}
 
 	public void showImageOnboarding(Activity activity) {
 		int color = ContextCompat.getColor(activity, R.color.briar_primary);
-		Drawable drawable = VectorDrawableCompat
-				.create(activity.getResources(), R.drawable.ic_image, null);
-		new MaterialTapTargetPrompt.Builder(activity,
-				R.style.OnboardingDialogTheme).setTarget(sendButton)
+		Drawable drawable = VectorDrawableCompat.create(
+				activity.getResources(), R.drawable.ic_image, null);
+		new MaterialTapTargetPrompt.Builder(activity, R.style.OnboardingDialogTheme)
+				.setTarget(sendButton)
 				.setPrimaryText(R.string.dialog_title_image_support)
 				.setSecondaryText(R.string.dialog_message_image_support)
 				.setBackgroundColour(color)
@@ -387,17 +368,12 @@ public class TextAttachmentController extends TextSendController
 			super.writeToParcel(out, flags);
 			out.writeList(imageUris);
 		}
-		public static final Creator<SavedState> CREATOR =
-				new Creator<SavedState>() {
-					@Override
-					public SavedState createFromParcel(Parcel in) {
-						return new SavedState(in);
-					}
-					@Override
-					public SavedState[] newArray(int size) {
-						return new SavedState[size];
-					}
-				};
+		public static final Creator<SavedState> CREATOR = new Creator<SavedState>() {
+			@Override
+			public SavedState createFromParcel(Parcel in) { return new SavedState(in); }
+			@Override
+			public SavedState[] newArray(int size) { return new SavedState[size]; }
+		};
 	}
 
 	@UiThread
