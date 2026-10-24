@@ -5,8 +5,11 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Rect;
 import android.os.Parcelable;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.Chronometer;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 
@@ -21,6 +24,8 @@ import androidx.annotation.StringRes;
 import androidx.annotation.UiThread;
 
 import static android.content.Context.LAYOUT_INFLATER_SERVICE;
+import static android.view.View.GONE;
+import static android.view.View.VISIBLE;
 import static java.util.Objects.requireNonNull;
 
 @UiThread
@@ -31,6 +36,9 @@ public class TextInputView extends LinearLayout {
 	@Nullable TextSendController textSendController;
 	final EmojiTextInputView textInput;
 	private final ImageButton voiceButton;
+	private final View voiceRecordingBar;
+	private final View compositeSendButton;
+	private final Chronometer voiceRecordingTimer;
 
 	public TextInputView(Context context) { this(context, null); }
 	public TextInputView(Context context, @Nullable AttributeSet attrs) { this(context, attrs, 0); }
@@ -48,6 +56,9 @@ public class TextInputView extends LinearLayout {
 		attributes.recycle();
 		textInput = findViewById(R.id.emojiTextInput);
 		voiceButton = findViewById(R.id.voiceButton);
+		voiceRecordingBar = findViewById(R.id.voiceRecordingBar);
+		compositeSendButton = findViewById(R.id.compositeSendButton);
+		voiceRecordingTimer = findViewById(R.id.voiceRecordingTimer);
 		textInput.setAllowEmptyText(allowEmptyText);
 		if (hint != null) textInput.setHint(hint);
 	}
@@ -71,8 +82,17 @@ public class TextInputView extends LinearLayout {
 	}
 	public void setOnVoiceClickListener(@Nullable OnClickListener listener) { voiceButton.setOnClickListener(listener); }
 	public void setVoiceRecording(boolean recording) {
-		voiceButton.setImageResource(recording ? android.R.drawable.ic_media_pause : android.R.drawable.ic_btn_speak_now);
+		voiceButton.setImageResource(recording ? android.R.drawable.ic_media_stop : android.R.drawable.ic_btn_speak_now);
 		voiceButton.setContentDescription(recording ? "Stop voice recording" : "Record voice message");
+		voiceRecordingBar.setVisibility(recording ? VISIBLE : GONE);
+		textInput.setVisibility(recording ? GONE : VISIBLE);
+		compositeSendButton.setVisibility(recording ? GONE : VISIBLE);
+		if (recording) {
+			voiceRecordingTimer.setBase(SystemClock.elapsedRealtime());
+			voiceRecordingTimer.start();
+		} else {
+			voiceRecordingTimer.stop();
+		}
 	}
 	public void setVoiceEnabled(boolean enabled) { voiceButton.setEnabled(enabled); }
 	public ImageButton getVoiceButton() { return voiceButton; }
