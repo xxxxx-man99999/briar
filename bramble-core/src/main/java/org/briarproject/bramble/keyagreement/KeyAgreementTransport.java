@@ -1,5 +1,7 @@
 package org.briarproject.bramble.keyagreement;
 
+import org.briarproject.bramble.api.crypto.PostQuantumCapabilities;
+import org.briarproject.bramble.api.crypto.PostQuantumCapabilitiesCodec;
 import org.briarproject.bramble.api.keyagreement.KeyAgreementConnection;
 import org.briarproject.bramble.api.plugin.TransportId;
 import org.briarproject.bramble.api.plugin.duplex.DuplexTransportConnection;
@@ -22,10 +24,15 @@ import static org.briarproject.bramble.api.keyagreement.KeyAgreementConstants.PR
 import static org.briarproject.bramble.api.keyagreement.RecordTypes.ABORT;
 import static org.briarproject.bramble.api.keyagreement.RecordTypes.CONFIRM;
 import static org.briarproject.bramble.api.keyagreement.RecordTypes.KEY;
+import static org.briarproject.bramble.api.keyagreement.RecordTypes.PQ_CAPABILITIES;
 import static org.briarproject.bramble.util.LogUtils.logException;
 
 /**
  * Handles the sending and receiving of BQP records.
+ *
+ * <p>PQ capability negotiation is optional. A capability receiver buffers a
+ * legacy KEY record when the peer does not understand the new record type,
+ * allowing the existing classical BQP flow to continue unchanged.</p>
  */
 @NotNullByDefault
 class KeyAgreementTransport {
@@ -44,12 +51,14 @@ class KeyAgreementTransport {
 					!isKnownRecordType(r.getRecordType());
 
 	private static boolean isKnownRecordType(byte type) {
-		return type == KEY || type == CONFIRM || type == ABORT;
+		return type == KEY || type == CONFIRM || type == ABORT
+				|| type == PQ_CAPABILITIES;
 	}
 
 	private final KeyAgreementConnection kac;
 	private final RecordReader reader;
 	private final RecordWriter writer;
+	private Record pendingRecord;
 
 	KeyAgreementTransport(RecordReaderFactory recordReaderFactory,
 			RecordWriterFactory recordWriterFactory, KeyAgreementConnection kac)
@@ -75,6 +84,31 @@ class KeyAgreementTransport {
 
 	byte[] receiveKey() throws AbortException {
 		return readRecord(KEY);
+	}
+
+	void sendPqCapabilities(PostQuantumCapabilities capabilities) throws IOException {
+		writeRecord(PQ_CAPABILITIES, PostQuantumCapabilitiesCodec.encode(capabilities));
+	}
+
+	/**
+	 * Receives the peer capability advertisement. If the peer is legacy and
+	 * sends KEY first, that record is buffered for the normal BQP receiveKey().
+	 */
+	PostQuantumCapabilities receivePqCapabilities() throws AbortException {
+		try {
+			Record record = readNextRecord();
+			byte type = record.getRecordType();
+			if (type == ABORT) throw new AbortException(true);
+			if (type == PQ_CAPABILITIES)
+				return PostQuantumCapabilitiesCodec.decode(record.getPayload());
+			if (type == KEY) {
+				pendingRecord = record;
+				return PostQuantumCapabilities.local(false);
+			}
+			throw new AbortException(false);
+		} catch (IOException e) {
+			throw new AbortException(e);
+		}
 	}
 
 	void sendConfirm(byte[] confirm) throws IOException {
@@ -109,10 +143,20 @@ class KeyAgreementTransport {
 		writer.flush();
 	}
 
+	private Record readNextRecord() throws IOException {
+		if (pendingRecord != null) {
+			Record record = pendingRecord;
+			pendingRecord = null;
+			return record;
+		}
+		Record record = reader.readRecord(ACCEPT, IGNORE);
+		if (record == null) throw new EOFException();
+		return record;
+	}
+
 	private byte[] readRecord(byte expectedType) throws AbortException {
 		try {
-			Record record = reader.readRecord(ACCEPT, IGNORE);
-			if (record == null) throw new AbortException(new EOFException());
+			Record record = readNextRecord();
 			byte type = record.getRecordType();
 			if (type == ABORT) throw new AbortException(true);
 			if (type != expectedType) throw new AbortException(false);
