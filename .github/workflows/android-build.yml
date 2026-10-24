@@ -75,8 +75,8 @@ jobs:
           emulator-options: -no-window -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            APK=$(find briar-android/build/outputs/apk -name '*.apk' | head -n 1)
-            test -n "$APK"
+            APK="briar-android/build/outputs/apk/official/debug/briar-android-official-debug.apk"
+            test -f "$APK"
             adb install -r "$APK"
             adb shell am force-stop org.briarproject.briar.android.debug
             adb shell monkey -p org.briarproject.briar.android.debug 1
@@ -86,7 +86,9 @@ jobs:
             adb exec-out screencap -p > briar-emulator-startup.png
 
       - name: Upload emulator screenshot
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: briar-emulator-smoke
           path: briar-emulator-startup.png
+          if-no-files-found: warn
