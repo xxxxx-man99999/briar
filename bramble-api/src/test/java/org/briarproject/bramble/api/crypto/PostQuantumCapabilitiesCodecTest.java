@@ -48,6 +48,19 @@ public class PostQuantumCapabilitiesCodecTest {
 	}
 
 	@Test
+	public void directionalMismatchDisablesHybridUse() {
+		PostQuantumCapabilities sendOnly =
+				new PostQuantumCapabilities(true, true, true, false);
+		PostQuantumCapabilities receiveOnly =
+				new PostQuantumCapabilities(true, true, false, true);
+		assertTrue(sendOnly.canUseHybridWith(receiveOnly));
+		assertTrue(receiveOnly.canUseHybridWith(sendOnly));
+		PostQuantumCapabilities disabledPeer =
+				new PostQuantumCapabilities(true, false, true, true);
+		assertFalse(sendOnly.canUseHybridWith(disabledPeer));
+	}
+
+	@Test
 	public void unknownAlgorithmFallsBackToClassical() throws Exception {
 		PostQuantumCapabilities decoded = PostQuantumCapabilitiesCodec.decode(
 				new byte[] {2, 99, 15});
