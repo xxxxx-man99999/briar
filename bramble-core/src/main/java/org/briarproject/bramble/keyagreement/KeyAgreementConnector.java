@@ -135,17 +135,20 @@ class KeyAgreementConnector {
 			}
 		}
 
-		// TODO: If we don't have any transports in common with the peer,
-		//  warn the user and give up (#1224)
-
-		if (!transports.isEmpty()) {
+		// Fail immediately if the QR payload has no transport we can use.
+		// Previously we waited for CONNECTION_TIMEOUT without attempting a
+		// connection, leaving the UI stuck in "connecting" on this path.
+		try {
+			if (transports.isEmpty()) {
+				LOG.warning("No common key-agreement transport with remote device. " +
+						"Remote transports: " + descriptors.keySet());
+				return null;
+			}
 			byte[] commitment = remotePayload.getCommitment();
 			connectionChooser.submit(new ReadableTask(new ConnectorTask(
 					transports, commitment)));
-		}
 
-		// Get chosen connection
-		try {
+			// Get chosen connection
 			KeyAgreementConnection chosen =
 					connectionChooser.poll(CONNECTION_TIMEOUT);
 			if (chosen == null) return null;
