@@ -29,13 +29,7 @@ import static org.briarproject.bramble.api.keyagreement.RecordTypes.PQ_CIPHERTEX
 import static org.briarproject.bramble.api.keyagreement.RecordTypes.PQ_PUBLIC_KEY;
 import static org.briarproject.bramble.util.LogUtils.logException;
 
-/**
- * Handles the sending and receiving of BQP records.
- *
- * <p>PQ capability negotiation is optional. A capability receiver buffers a
- * legacy KEY record when the peer does not understand the new record type,
- * allowing the existing classical BQP flow to continue unchanged.</p>
- */
+/** Handles BQP records. Hybrid PQC negotiation is mandatory. */
 @NotNullByDefault
 class KeyAgreementTransport {
 
@@ -43,23 +37,19 @@ class KeyAgreementTransport {
 			Logger.getLogger(KeyAgreementTransport.class.getName());
 
 	private static final RecordPredicate ACCEPT = r ->
-			r.getProtocolVersion() == PROTOCOL_VERSION &&
-					isKnownRecordType(r.getRecordType());
+			r.getProtocolVersion() == PROTOCOL_VERSION && isKnownRecordType(r.getRecordType());
 
 	private static final RecordPredicate IGNORE = r ->
-			r.getProtocolVersion() == PROTOCOL_VERSION &&
-					!isKnownRecordType(r.getRecordType());
+			r.getProtocolVersion() == PROTOCOL_VERSION && !isKnownRecordType(r.getRecordType());
 
 	private static boolean isKnownRecordType(byte type) {
 		return type == KEY || type == CONFIRM || type == ABORT
-				|| type == PQ_CAPABILITIES || type == PQ_PUBLIC_KEY
-				|| type == PQ_CIPHERTEXT;
+				|| type == PQ_CAPABILITIES || type == PQ_PUBLIC_KEY || type == PQ_CIPHERTEXT;
 	}
 
 	private final KeyAgreementConnection kac;
 	private final RecordReader reader;
 	private final RecordWriter writer;
-	private Record pendingRecord;
 
 	KeyAgreementTransport(RecordReaderFactory recordReaderFactory,
 			RecordWriterFactory recordWriterFactory, KeyAgreementConnection kac)
@@ -71,21 +61,11 @@ class KeyAgreementTransport {
 		writer = recordWriterFactory.createRecordWriter(out);
 	}
 
-	public DuplexTransportConnection getConnection() {
-		return kac.getConnection();
-	}
+	DuplexTransportConnection getConnection() { return kac.getConnection(); }
+	TransportId getTransportId() { return kac.getTransportId(); }
 
-	public TransportId getTransportId() {
-		return kac.getTransportId();
-	}
-
-	void sendKey(byte[] key) throws IOException {
-		writeRecord(KEY, key);
-	}
-
-	byte[] receiveKey() throws AbortException {
-		return readRecord(KEY);
-	}
+	void sendKey(byte[] key) throws IOException { writeRecord(KEY, key); }
+	byte[] receiveKey() throws AbortException { return readRecord(KEY); }
 
 	void sendPqCapabilities(PostQuantumCapabilities capabilities) throws IOException {
 		writeRecord(PQ_CAPABILITIES, PostQuantumCapabilitiesCodec.encode(capabilities));
@@ -98,39 +78,21 @@ class KeyAgreementTransport {
 			if (type == ABORT) throw new AbortException(true);
 			if (type == PQ_CAPABILITIES)
 				return PostQuantumCapabilitiesCodec.decode(record.getPayload());
-			if (type == KEY) {
-				pendingRecord = record;
-				return PostQuantumCapabilities.local(false);
-			}
+			// No legacy/classical-only fallback: a KEY before PQ capabilities
+			// means the peer cannot satisfy the mandatory hybrid handshake.
+			if (type == KEY) throw new AbortException(false);
 			throw new AbortException(false);
 		} catch (IOException e) {
 			throw new AbortException(e);
 		}
 	}
 
-	void sendPqPublicKey(byte[] publicKey) throws IOException {
-		writeRecord(PQ_PUBLIC_KEY, publicKey);
-	}
-
-	byte[] receivePqPublicKey() throws AbortException {
-		return readRecord(PQ_PUBLIC_KEY);
-	}
-
-	void sendPqCiphertext(byte[] ciphertext) throws IOException {
-		writeRecord(PQ_CIPHERTEXT, ciphertext);
-	}
-
-	byte[] receivePqCiphertext() throws AbortException {
-		return readRecord(PQ_CIPHERTEXT);
-	}
-
-	void sendConfirm(byte[] confirm) throws IOException {
-		writeRecord(CONFIRM, confirm);
-	}
-
-	byte[] receiveConfirm() throws AbortException {
-		return readRecord(CONFIRM);
-	}
+	void sendPqPublicKey(byte[] publicKey) throws IOException { writeRecord(PQ_PUBLIC_KEY, publicKey); }
+	byte[] receivePqPublicKey() throws AbortException { return readRecord(PQ_PUBLIC_KEY); }
+	void sendPqCiphertext(byte[] ciphertext) throws IOException { writeRecord(PQ_CIPHERTEXT, ciphertext); }
+	byte[] receivePqCiphertext() throws AbortException { return readRecord(PQ_CIPHERTEXT); }
+	void sendConfirm(byte[] confirm) throws IOException { writeRecord(CONFIRM, confirm); }
+	byte[] receiveConfirm() throws AbortException { return readRecord(CONFIRM); }
 
 	void sendAbort(boolean exception) {
 		try {
@@ -157,11 +119,6 @@ class KeyAgreementTransport {
 	}
 
 	private Record readNextRecord() throws IOException {
-		if (pendingRecord != null) {
-			Record record = pendingRecord;
-			pendingRecord = null;
-			return record;
-		}
 		Record record = reader.readRecord(ACCEPT, IGNORE);
 		if (record == null) throw new EOFException();
 		return record;
