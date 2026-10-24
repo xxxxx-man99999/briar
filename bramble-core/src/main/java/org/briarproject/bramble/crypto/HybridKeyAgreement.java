@@ -1,31 +1,28 @@
 package org.briarproject.bramble.crypto;
 
+import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
+import org.bouncycastle.crypto.SecretWithEncapsulation;
+import org.bouncycastle.pqc.crypto.mlkem.MLKEMExtractor;
+import org.bouncycastle.pqc.crypto.mlkem.MLKEMGenerator;
+import org.bouncycastle.pqc.crypto.mlkem.MLKEMParameters;
+import org.bouncycastle.pqc.crypto.mlkem.MLKEMPrivateKeyParameters;
+import org.bouncycastle.pqc.crypto.mlkem.MLKEMPublicKeyParameters;
 import org.briarproject.nullsafety.NotNullByDefault;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
-import java.security.PrivateKey;
-import java.security.PublicKey;
 import java.security.SecureRandom;
-import java.security.spec.NamedParameterSpec;
-
-import javax.crypto.KEM;
 
 /**
  * Hybrid classical + post-quantum key agreement primitive.
  *
  * The existing Briar agreement remains the authentication mechanism. This
- * class provides the ML-KEM half and a domain-separated combiner for the
- * negotiated hybrid secret.
+ * class provides the ML-KEM-768 half and a domain-separated combiner.
  */
 @NotNullByDefault
 public final class HybridKeyAgreement {
 
-	private static final String KEM_ALGORITHM = "ML-KEM";
-	private static final String KEM_PARAMETER = "ML-KEM-768";
 	private static final byte[] LABEL =
 			"Briar-Hybrid-KEM-v1".getBytes(StandardCharsets.US_ASCII);
 
@@ -33,31 +30,32 @@ public final class HybridKeyAgreement {
 
 	public static boolean isSupported() {
 		try {
-			KEM.getInstance(KEM_ALGORITHM);
+			MLKEMGenerator generator = new MLKEMGenerator(new SecureRandom());
+			generator.generateEncapsulated(new MLKEMPublicKeyParameters(
+					MLKEMParameters.ml_kem_768, new byte[1184]));
 			return true;
-		} catch (GeneralSecurityException e) {
+		} catch (Exception e) {
 			return false;
 		}
 	}
 
-	public static KeyPair generateKemKeyPair() throws GeneralSecurityException {
-		KeyPairGenerator generator = KeyPairGenerator.getInstance(KEM_ALGORITHM);
-		generator.initialize(new NamedParameterSpec(KEM_PARAMETER), new SecureRandom());
+	public static AsymmetricCipherKeyPair generateKemKeyPair() {
+		org.bouncycastle.pqc.crypto.mlkem.MLKEMKeyPairGenerator generator =
+				new org.bouncycastle.pqc.crypto.mlkem.MLKEMKeyPairGenerator();
+		generator.init(new org.bouncycastle.pqc.crypto.mlkem.MLKEMKeyGenerationParameters(
+				new SecureRandom(), MLKEMParameters.ml_kem_768));
 		return generator.generateKeyPair();
 	}
 
-	public static Encapsulation encapsulate(PublicKey publicKey)
-			throws GeneralSecurityException {
-		KEM kem = KEM.getInstance(KEM_ALGORITHM);
-		KEM.Encapsulated encapsulated = kem.newEncapsulator(publicKey).encapsulate();
-		return new Encapsulation(encapsulated.encapsulation(),
-				encapsulated.key().getEncoded());
+	public static Encapsulation encapsulate(MLKEMPublicKeyParameters publicKey) {
+		SecretWithEncapsulation result = new MLKEMGenerator(new SecureRandom())
+				.generateEncapsulated(publicKey);
+		return new Encapsulation(result.getEncapsulation(), result.getSecret());
 	}
 
-	public static byte[] decapsulate(PrivateKey privateKey, byte[] encapsulation)
-			throws GeneralSecurityException {
-		KEM kem = KEM.getInstance(KEM_ALGORITHM);
-		return kem.newDecapsulator(privateKey).decapsulate(encapsulation).getEncoded();
+	public static byte[] decapsulate(MLKEMPrivateKeyParameters privateKey,
+			byte[] encapsulation) {
+		return new MLKEMExtractor(privateKey).extractSecret(encapsulation);
 	}
 
 	/** Combines the existing classical secret and the ML-KEM secret with SHA-256. */
