@@ -1,6 +1,7 @@
 package org.briarproject.briar.android.conversation;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.Resources;
 import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
@@ -16,7 +17,6 @@ import org.briarproject.nullsafety.NotNullByDefault;
 import java.util.ArrayList;
 import java.util.List;
 
-import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView.Adapter;
 
 import static android.content.Context.WINDOW_SERVICE;
@@ -31,17 +31,14 @@ class ImageAdapter extends Adapter<ImageViewHolder> {
 	private final int imageSize;
 	private final int radiusBig, radiusSmall;
 	private final boolean isRtl;
-	@Nullable
 	private ConversationMessageItem conversationItem;
 
 	ImageAdapter(Context ctx, ConversationListener listener) {
 		this.listener = listener;
 		imageSize = getImageSize(ctx);
 		Resources res = ctx.getResources();
-		radiusBig =
-				res.getDimensionPixelSize(R.dimen.message_bubble_radius_big);
-		radiusSmall =
-				res.getDimensionPixelSize(R.dimen.message_bubble_radius_small);
+		radiusBig = res.getDimensionPixelSize(R.dimen.message_bubble_radius_big);
+		radiusSmall = res.getDimensionPixelSize(R.dimen.message_bubble_radius_small);
 		isRtl = isRtl(ctx);
 	}
 
@@ -54,16 +51,20 @@ class ImageAdapter extends Adapter<ImageViewHolder> {
 	}
 
 	@Override
-	public void onBindViewHolder(ImageViewHolder imageViewHolder,
-			int position) {
-		// get item
+	public void onBindViewHolder(ImageViewHolder imageViewHolder, int position) {
 		requireNonNull(conversationItem);
 		AttachmentItem item = items.get(position);
-		// set onClick listener
-		imageViewHolder.itemView.setOnClickListener(v ->
-				listener.onAttachmentClicked(v, conversationItem, item)
-		);
-		// bind view holder
+		imageViewHolder.itemView.setOnClickListener(v -> {
+			if (item.getMimeType().startsWith("audio/")) {
+				Intent intent = new Intent(v.getContext(), VoiceActivity.class);
+				intent.putExtra(VoiceActivity.ATTACHMENT, item);
+				intent.putExtra(VoiceActivity.ITEM_ID,
+						conversationItem.getId().getBytes());
+				v.getContext().startActivity(intent);
+			} else {
+				listener.onAttachmentClicked(v, conversationItem, item);
+			}
+		});
 		int size = items.size();
 		boolean isIncoming = conversationItem.isIncoming();
 		boolean hasText = conversationItem.getText() != null;
@@ -85,25 +86,20 @@ class ImageAdapter extends Adapter<ImageViewHolder> {
 
 	private int getImageSize(Context ctx) {
 		Resources res = ctx.getResources();
-		WindowManager windowManager =
-				(WindowManager) ctx.getSystemService(WINDOW_SERVICE);
+		WindowManager windowManager = (WindowManager) ctx.getSystemService(WINDOW_SERVICE);
 		DisplayMetrics displayMetrics = new DisplayMetrics();
 		if (windowManager == null) {
-			return res.getDimensionPixelSize(
-					R.dimen.message_bubble_image_default);
+			return res.getDimensionPixelSize(R.dimen.message_bubble_image_default);
 		}
 		windowManager.getDefaultDisplay().getMetrics(displayMetrics);
 		int imageSize = displayMetrics.widthPixels / 3;
-		int maxSize = res.getDimensionPixelSize(
-				R.dimen.message_bubble_image_max_width);
+		int maxSize = res.getDimensionPixelSize(R.dimen.message_bubble_image_max_width);
 		return Math.min(imageSize, maxSize);
 	}
 
-	private Radii getRadii(int pos, int num, boolean isIncoming,
-			boolean hasText) {
+	private Radii getRadii(int pos, int num, boolean isIncoming, boolean hasText) {
 		boolean left = isLeft(pos);
 		boolean single = num == 1;
-		// Top Row
 		int topLeft;
 		int topRight;
 		if (single) {
@@ -116,7 +112,6 @@ class ImageAdapter extends Adapter<ImageViewHolder> {
 			topLeft = 0;
 			topRight = 0;
 		}
-		// Bottom Row
 		boolean singleInRow = singleInRow(pos, num);
 		int bottomLeft;
 		int bottomRight;
@@ -136,23 +131,13 @@ class ImageAdapter extends Adapter<ImageViewHolder> {
 		notifyDataSetChanged();
 	}
 
-	static boolean isTopRow(int pos) {
-		return pos < 2;
-	}
-
-	static boolean isLeft(int pos) {
-		return pos % 2 == 0;
-	}
-
+	static boolean isTopRow(int pos) { return pos < 2; }
+	static boolean isLeft(int pos) { return pos % 2 == 0; }
 	static boolean isBottomRow(int pos, int num) {
-		return num % 2 == 0 ?
-				pos >= num - 2 : // last two, if even
-				pos > num - 2;   // last one, if odd
+		return num % 2 == 0 ? pos >= num - 2 : pos > num - 2;
 	}
-
 	static boolean singleInRow(int pos, int num) {
-		// last item of an odd number
-		return num % 2 != 0 && pos == num -1;
+		return num % 2 != 0 && pos == num - 1;
 	}
 
 }
