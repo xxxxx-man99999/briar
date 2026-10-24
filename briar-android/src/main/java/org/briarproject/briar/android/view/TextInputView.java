@@ -75,10 +75,11 @@ public class TextInputView extends LinearLayout {
 		voiceButton.setContentDescription(recording ? "Stop voice recording" : "Record voice message");
 	}
 	public void setVoiceEnabled(boolean enabled) { voiceButton.setEnabled(enabled); }
+	public ImageButton getVoiceButton() { return voiceButton; }
+	public EmojiTextInputView getEmojiTextInputView() { return textInput; }
 	@Override public void setEnabled(boolean enabled) { throw new RuntimeException("Use controllers to enable/disable"); }
 	public void setReady(boolean ready) { requireNonNull(textSendController).setReady(ready); }
 	@Override public boolean requestFocus(int direction, Rect previouslyFocusedRect) { return textInput.requestFocus(direction, previouslyFocusedRect); }
-	EmojiTextInputView getEmojiTextInputView() { return textInput; }
 	public void clearText() { textInput.clearText(); }
 	public void setHint(@StringRes int res) { textInput.setHint(getContext().getString(res)); }
 	public void setMaxTextLength(int maxLength) { textInput.setMaxLength(maxLength); }
