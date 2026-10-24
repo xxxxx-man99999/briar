@@ -20,7 +20,6 @@ import org.briarproject.briar.android.blog.RssFeedImportFragment;
 import org.briarproject.briar.android.blog.RssFeedManageFragment;
 import org.briarproject.briar.android.blog.WriteBlogPostActivity;
 import org.briarproject.briar.android.contact.ContactListFragment;
-import org.briarproject.briar.android.contact.ContactChooserFragment;
 import org.briarproject.briar.android.contact.add.nearby.AddNearbyContactActivity;
 import org.briarproject.briar.android.contact.add.nearby.AddNearbyContactErrorFragment;
 import org.briarproject.briar.android.contact.add.nearby.AddNearbyContactFragment;
@@ -41,7 +40,6 @@ import org.briarproject.briar.android.forum.ForumActivity;
 import org.briarproject.briar.android.forum.ForumListFragment;
 import org.briarproject.briar.android.fragment.ScreenFilterDialogFragment;
 import org.briarproject.briar.android.hotspot.HotspotActivity;
-import org.briarproject.briar.android.introduction.ContactChooserFragment;
 import org.briarproject.briar.android.introduction.ContactChooserFragment;
 import org.briarproject.briar.android.introduction.IntroductionActivity;
 import org.briarproject.briar.android.introduction.IntroductionMessageFragment;
@@ -99,9 +97,7 @@ import dagger.Component;
 		SharingModule.SharingLegacyModule.class
 }, dependencies = AndroidComponent.class)
 public interface ActivityComponent {
-
 	Activity activity();
-
 	void inject(SplashScreenActivity activity);
 	void inject(StartupActivity activity);
 	void inject(SetupActivity activity);
@@ -145,7 +141,6 @@ public interface ActivityComponent {
 	void inject(CrashReportActivity crashReportActivity);
 	void inject(HotspotActivity activity);
 	void inject(RemovableDriveActivity activity);
-
 	void inject(SetupFragment fragment);
 	void inject(PasswordFragment imageFragment);
 	void inject(OpenDatabaseFragment activity);
@@ -170,7 +165,7 @@ public interface ActivityComponent {
 	void inject(AliasDialogFragment aliasDialogFragment);
 	void inject(ImageFragment imageFragment);
 	void inject(ReportFormFragment reportFormFragment);
-	void inject(CrashFragment crashFragment);
+	void inject(CrashFragment fragment);
 	void inject(ConfirmAvatarDialogFragment fragment);
 	void inject(ConversationSettingsDialog dialog);
 	void inject(RssFeedImportFragment fragment);
