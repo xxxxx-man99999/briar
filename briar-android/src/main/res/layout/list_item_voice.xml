@@ -13,7 +13,7 @@
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Play voice message"
+        android:contentDescription="@string/play_voice_message"
         android:padding="9dp"
         android:src="@android:drawable/ic_media_play"
         android:tint="?android:attr/textColorPrimary" />
@@ -52,7 +52,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:maxLines="1"
-            android:text="Voice message"
+            android:text="@string/voice_message"
             android:textAppearance="?android:attr/textAppearanceSmall" />
     </LinearLayout>
 
