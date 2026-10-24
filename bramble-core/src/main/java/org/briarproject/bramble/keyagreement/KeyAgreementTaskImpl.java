@@ -44,6 +44,8 @@ class KeyAgreementTaskImpl extends Thread implements KeyAgreementTask,
 	private final PayloadEncoder payloadEncoder;
 	private final KeyPair localKeyPair;
 	private final KeyAgreementConnector connector;
+	private Payload localPayload;
+	private Payload remotePayload;
 
 	@Inject
 	KeyAgreementTaskImpl(CryptoComponent crypto,
