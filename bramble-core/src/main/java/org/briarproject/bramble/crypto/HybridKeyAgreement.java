@@ -48,11 +48,7 @@ public final class HybridKeyAgreement {
 	public static Encapsulation encapsulate(MLKEMPublicKeyParameters publicKey) {
 		SecretWithEncapsulation result = new MLKEMGenerator(new SecureRandom())
 				.generateEncapsulated(publicKey);
-		try {
-			return new Encapsulation(result.getEncapsulation(), result.getSecret());
-		} finally {
-			result.dispose();
-		}
+		return new Encapsulation(result.getEncapsulation(), result.getSecret());
 	}
 
 	public static byte[] decapsulate(MLKEMPrivateKeyParameters privateKey,
@@ -67,9 +63,9 @@ public final class HybridKeyAgreement {
 	}
 
 	/**
-	 * Combines both secrets and an authenticated handshake context. The context
-	 * binds capability negotiation and the PQ exchange to the final secret,
-	 * preventing a silent downgrade from being accepted as the same key.
+	 * Combines both secrets and an authenticated handshake context.
+	 * The context must be constructed by the protocol layer from canonical,
+	 * length-delimited transcript data.
 	 */
 	public static byte[] combine(byte[] classicalSecret, byte[] kemSecret,
 			byte[] context) throws GeneralSecurityException {
