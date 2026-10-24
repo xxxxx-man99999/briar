@@ -11,18 +11,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
-      - name: Upload debug APK
+      - name: Locate APKs
+        run: |
+          echo "Built APK files:"
+          find . -type f -path '*/build/outputs/apk/**/*.apk' -print
+      - name: Upload debug APKs
         uses: actions/upload-artifact@v4
         with:
-          name: briar-debug-apk
-          path: '**/build/outputs/apk/debug/*.apk'
+          name: briar-debug-apks
+          path: '**/build/outputs/apk/**/*.apk'
           if-no-files-found: error
           retention-days: 14
