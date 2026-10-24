@@ -46,22 +46,19 @@ class AttachmentRetrieverImpl implements AttachmentRetriever {
 
 	private static final String VOICE_MIME_TYPE = "audio/mp4";
 	private static final String VOICE_EXTENSION = "m4a";
-	private static final Logger LOG =
-			getLogger(AttachmentRetrieverImpl.class.getName());
+	private static final Logger LOG = getLogger(AttachmentRetrieverImpl.class.getName());
 
-	@DatabaseExecutor
-	private final Executor dbExecutor;
+	@DatabaseExecutor private final Executor dbExecutor;
 	private final AttachmentReader attachmentReader;
 	private final ImageHelper imageHelper;
 	private final ImageSizeCalculator imageSizeCalculator;
 	private final int defaultSize;
 	private final int minWidth, maxWidth;
 	private final int minHeight, maxHeight;
-
-	private final ConcurrentMap<MessageId, MutableLiveData<AttachmentItem>>
-			itemsWithSize = new ConcurrentHashMap<>();
-	private final ConcurrentMap<MessageId, MutableLiveData<AttachmentItem>>
-			itemsWithoutSize = new ConcurrentHashMap<>();
+	private final ConcurrentMap<MessageId, MutableLiveData<AttachmentItem>> itemsWithSize =
+			new ConcurrentHashMap<>();
+	private final ConcurrentMap<MessageId, MutableLiveData<AttachmentItem>> itemsWithoutSize =
+			new ConcurrentHashMap<>();
 
 	@Inject
 	AttachmentRetrieverImpl(@DatabaseExecutor Executor dbExecutor,
@@ -80,53 +77,32 @@ class AttachmentRetrieverImpl implements AttachmentRetriever {
 
 	@Override
 	@DatabaseExecutor
-	public Attachment getMessageAttachment(AttachmentHeader h)
-			throws DbException {
+	public Attachment getMessageAttachment(AttachmentHeader h) throws DbException {
 		return attachmentReader.getAttachment(h);
 	}
 
 	@Override
-	public List<LiveData<AttachmentItem>> getAttachmentItems(
-			PrivateMessageHeader messageHeader) {
+	public List<LiveData<AttachmentItem>> getAttachmentItems(PrivateMessageHeader messageHeader) {
 		List<AttachmentHeader> headers = messageHeader.getAttachmentHeaders();
 		List<LiveData<AttachmentItem>> items = new ArrayList<>(headers.size());
-		boolean needsSize = headers.size() == 1 &&
-				isImageContentType(headers.get(0).getContentType());
+		boolean needsSize = headers.size() == 1 && isImageContentType(headers.get(0).getContentType());
 		for (AttachmentHeader h : headers) {
 			if (!isSupportedContentType(h.getContentType())) {
-				if (LOG.isLoggable(INFO)) {
-					LOG.info("Unsupported content type " + h.getContentType());
-				}
-				AttachmentItem item = new AttachmentItem(h, "", ERROR);
-				items.add(new MutableLiveData<>(item));
+				if (LOG.isLoggable(INFO)) LOG.info("Unsupported content type " + h.getContentType());
+				items.add(new MutableLiveData<>(new AttachmentItem(h, "", ERROR)));
 				continue;
 			}
-
-			MutableLiveData<AttachmentItem> liveData =
-					itemsWithSize.get(h.getMessageId());
-			if (!needsSize && liveData == null) {
-				liveData = itemsWithoutSize.get(h.getMessageId());
-			}
-
+			MutableLiveData<AttachmentItem> liveData = itemsWithSize.get(h.getMessageId());
+			if (!needsSize && liveData == null) liveData = itemsWithoutSize.get(h.getMessageId());
 			if (liveData == null) {
-				AttachmentItem item = new AttachmentItem(h,
-						defaultSize, defaultSize, LOADING);
-				liveData = new MutableLiveData<>(item);
+				liveData = new MutableLiveData<>(new AttachmentItem(h, defaultSize, defaultSize, LOADING));
 				MutableLiveData<AttachmentItem> oldLiveData;
-				if (needsSize) {
-					oldLiveData = itemsWithSize.putIfAbsent(h.getMessageId(),
-							liveData);
-				} else {
-					oldLiveData = itemsWithoutSize.putIfAbsent(h.getMessageId(),
-							liveData);
-				}
+				if (needsSize) oldLiveData = itemsWithSize.putIfAbsent(h.getMessageId(), liveData);
+				else oldLiveData = itemsWithoutSize.putIfAbsent(h.getMessageId(), liveData);
 				if (oldLiveData == null) {
 					MutableLiveData<AttachmentItem> finalLiveData = liveData;
-					dbExecutor.execute(() ->
-							loadAttachmentItem(h, needsSize, finalLiveData));
-				} else {
-					liveData = oldLiveData;
-				}
+					dbExecutor.execute(() -> loadAttachmentItem(h, needsSize, finalLiveData));
+				} else liveData = oldLiveData;
 			}
 			items.add(liveData);
 		}
@@ -140,10 +116,7 @@ class AttachmentRetrieverImpl implements AttachmentRetriever {
 		if (itemsWithSize.containsKey(h.getMessageId())) return;
 		try {
 			Attachment a = attachmentReader.getAttachment(h);
-			AttachmentItem item = createAttachmentItem(a, true);
-			MutableLiveData<AttachmentItem> liveData =
-					new MutableLiveData<>(item);
-			itemsWithSize.putIfAbsent(h.getMessageId(), liveData);
+			itemsWithSize.putIfAbsent(h.getMessageId(), new MutableLiveData<>(createAttachmentItem(a, true)));
 		} catch (NoSuchMessageException e) {
 			LOG.info("Attachment not received yet");
 		}
@@ -152,9 +125,8 @@ class AttachmentRetrieverImpl implements AttachmentRetriever {
 	@Override
 	@DatabaseExecutor
 	public void loadAttachmentItem(MessageId attachmentId) {
-		MutableLiveData<AttachmentItem> liveData;
+		MutableLiveData<AttachmentItem> liveData = itemsWithSize.get(attachmentId);
 		boolean needsSize = true;
-		liveData = itemsWithSize.get(attachmentId);
 		if (liveData == null) {
 			needsSize = false;
 			liveData = itemsWithoutSize.get(attachmentId);
@@ -167,11 +139,9 @@ class AttachmentRetrieverImpl implements AttachmentRetriever {
 	@DatabaseExecutor
 	private void loadAttachmentItem(AttachmentHeader h, boolean needsSize,
 			MutableLiveData<AttachmentItem> liveData) {
-		Attachment a;
 		AttachmentItem item;
 		try {
-			a = attachmentReader.getAttachment(h);
-			item = createAttachmentItem(a, needsSize);
+			item = createAttachmentItem(attachmentReader.getAttachment(h), needsSize);
 		} catch (NoSuchMessageException e) {
 			LOG.info("Attachment not received yet");
 			item = new AttachmentItem(h, defaultSize, defaultSize, MISSING);
@@ -183,30 +153,22 @@ class AttachmentRetrieverImpl implements AttachmentRetriever {
 	}
 
 	@Override
-	public AttachmentItem createAttachmentItem(Attachment a,
-			boolean needsSize) {
+	public AttachmentItem createAttachmentItem(Attachment a, boolean needsSize) {
 		AttachmentHeader h = a.getHeader();
-		if (VOICE_MIME_TYPE.equals(h.getContentType()) ||
-				"audio/x-m4a".equals(h.getContentType())) {
-			return new AttachmentItem(h, defaultSize, defaultSize,
-					VOICE_EXTENSION, defaultSize, defaultSize, AVAILABLE);
+		if (VOICE_MIME_TYPE.equals(h.getContentType()) || "audio/x-m4a".equals(h.getContentType())) {
+			return new AttachmentItem(h, defaultSize, defaultSize, VOICE_EXTENSION,
+					defaultSize, defaultSize, AVAILABLE);
 		}
-		AttachmentItem item;
 		if (needsSize) {
 			InputStream is = new BufferedInputStream(a.getStream());
 			Size size = imageSizeCalculator.getSize(is, h.getContentType());
 			tryToClose(is, LOG, WARNING);
-			item = createAttachmentItem(h, size);
-		} else {
-			String extension = imageHelper.getExtensionFromMimeType(h.getContentType());
-			State state = AVAILABLE;
-			if (extension == null) {
-				extension = "";
-				state = ERROR;
-			}
-			item = new AttachmentItem(h, extension, state);
+			return createAttachmentItem(h, size);
 		}
-		return item;
+		String extension = imageHelper.getExtensionFromMimeType(h.getContentType());
+		State state = extension == null ? ERROR : AVAILABLE;
+		if (extension == null) extension = "";
+		return new AttachmentItem(h, extension, state);
 	}
 
 	private boolean isSupportedContentType(String mimeType) {
@@ -220,27 +182,15 @@ class AttachmentRetrieverImpl implements AttachmentRetriever {
 
 	private AttachmentItem createAttachmentItem(AttachmentHeader h, Size size) {
 		Size thumbnailSize = new Size(defaultSize, defaultSize, size.getMimeType());
-		if (!size.hasError()) {
-			thumbnailSize = getThumbnailSize(size.getWidth(), size.getHeight(),
-					size.getMimeType());
-		}
+		if (!size.hasError()) thumbnailSize = getThumbnailSize(size.getWidth(), size.getHeight(), size.getMimeType());
 		String extension = imageHelper.getExtensionFromMimeType(size.getMimeType());
 		boolean hasError = extension == null || size.hasError();
-		if (!h.getContentType().equals(size.getMimeType())) {
-			if (LOG.isLoggable(WARNING)) {
-				LOG.warning("Header has different mime type (" +
-						h.getContentType() + ") than image (" +
-						size.getMimeType() + ").");
-			}
-			hasError = true;
-		}
+		if (!h.getContentType().equals(size.getMimeType())) hasError = true;
 		if (extension == null) extension = "";
 		State state = hasError ? ERROR : AVAILABLE;
-		return new AttachmentItem(h, size.getWidth(), size.getHeight(),
-				extension, thumbnailSize.getWidth(), thumbnailSize.getHeight(), state);
+		return new AttachmentItem(h, size.getWidth(), size.getHeight(), extension,
+				thumbnailSize.getWidth(), thumbnailSize.getHeight(), state);
 	}
-
-	private int[] unused() { return new int[] {minWidth, maxWidth, minHeight, maxHeight}; }
 
 	private Size getThumbnailSize(int width, int height, String mimeType) {
 		float widthPercentage = maxWidth / (float) width;
