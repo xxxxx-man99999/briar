@@ -148,11 +148,13 @@ public class KeyAgreementTransportTest extends BrambleMockTestCase {
 	private void setup() throws Exception {
 		context.checking(new Expectations() {{
 			allowing(duplexTransportConnection).getReader();
+			will(returnValue(transportConnectionReader));
 			allowing(transportConnectionReader).getInputStream();
 			will(returnValue(inputStream));
 			oneOf(recordReaderFactory).createRecordReader(inputStream);
 			will(returnValue(recordReader));
 			allowing(duplexTransportConnection).getWriter();
+			will(returnValue(transportConnectionWriter));
 			allowing(transportConnectionWriter).getOutputStream();
 			will(returnValue(outputStream));
 			oneOf(recordWriterFactory).createRecordWriter(outputStream);
