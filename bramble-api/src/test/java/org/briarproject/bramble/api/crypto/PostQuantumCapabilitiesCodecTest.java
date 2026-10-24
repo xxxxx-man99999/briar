@@ -53,8 +53,8 @@ public class PostQuantumCapabilitiesCodecTest {
 				new PostQuantumCapabilities(true, true, true, false);
 		PostQuantumCapabilities receiveOnly =
 				new PostQuantumCapabilities(true, true, false, true);
-		assertTrue(sendOnly.canUseHybridWith(receiveOnly));
-		assertTrue(receiveOnly.canUseHybridWith(sendOnly));
+		assertFalse(sendOnly.canUseHybridWith(receiveOnly));
+		assertFalse(receiveOnly.canUseHybridWith(sendOnly));
 		PostQuantumCapabilities disabledPeer =
 				new PostQuantumCapabilities(true, false, true, true);
 		assertFalse(sendOnly.canUseHybridWith(disabledPeer));
