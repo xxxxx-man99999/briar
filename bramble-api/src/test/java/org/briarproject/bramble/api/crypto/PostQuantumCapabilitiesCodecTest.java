@@ -12,36 +12,51 @@ public class PostQuantumCapabilitiesCodecTest {
 
 	@Test
 	public void supportedCapabilitiesRoundTrip() throws Exception {
-		PostQuantumCapabilities original = PostQuantumCapabilities.local(true);
+		PostQuantumCapabilities original =
+				new PostQuantumCapabilities(true, true, true, false);
 		byte[] encoded = PostQuantumCapabilitiesCodec.encode(original);
 		PostQuantumCapabilities decoded = PostQuantumCapabilitiesCodec.decode(encoded);
 
-		assertArrayEquals(new byte[] {1, 1}, encoded);
+		assertArrayEquals(new byte[] {2, 1, 7}, encoded);
 		assertTrue(decoded.isSupported());
 		assertTrue(decoded.isEnabled());
+		assertTrue(decoded.isSendEnabled());
+		assertFalse(decoded.isReceiveEnabled());
 	}
 
 	@Test
-	public void disabledCapabilitiesEncodeCompactly() throws Exception {
+	public void disabledCapabilitiesEncodeExplicitly() throws Exception {
 		byte[] encoded = PostQuantumCapabilitiesCodec.encode(
 				PostQuantumCapabilities.local(false));
 		PostQuantumCapabilities decoded = PostQuantumCapabilitiesCodec.decode(encoded);
 
-		assertArrayEquals(new byte[] {1, 0}, encoded);
+		assertArrayEquals(new byte[] {2, 1, 0}, encoded);
 		assertFalse(decoded.isSupported());
 		assertFalse(decoded.isEnabled());
+		assertFalse(decoded.isSendEnabled());
+		assertFalse(decoded.isReceiveEnabled());
+	}
+
+	@Test
+	public void version1CapabilitiesRemainDecodable() throws Exception {
+		PostQuantumCapabilities decoded = PostQuantumCapabilitiesCodec.decode(
+				new byte[] {1, 1});
+		assertTrue(decoded.isSupported());
+		assertTrue(decoded.isEnabled());
+		assertTrue(decoded.isSendEnabled());
+		assertTrue(decoded.isReceiveEnabled());
 	}
 
 	@Test
 	public void unknownAlgorithmFallsBackToClassical() throws Exception {
 		PostQuantumCapabilities decoded = PostQuantumCapabilitiesCodec.decode(
-				new byte[] {1, 99});
+				new byte[] {2, 99, 15});
 		assertFalse(decoded.isSupported());
 		assertFalse(decoded.isEnabled());
 	}
 
 	@Test(expected = IOException.class)
 	public void malformedRecordIsRejected() throws Exception {
-		PostQuantumCapabilitiesCodec.decode(new byte[] {1});
+		PostQuantumCapabilitiesCodec.decode(new byte[] {2, 1});
 	}
 }
