@@ -2,6 +2,9 @@ name: Manual Build
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
 
 jobs:
   build:
