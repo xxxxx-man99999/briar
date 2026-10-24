@@ -1,13 +1,19 @@
 package org.briarproject.bramble.keyagreement;
 
+import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
+import org.bouncycastle.pqc.crypto.mlkem.MLKEMPrivateKeyParameters;
+import org.bouncycastle.pqc.crypto.mlkem.MLKEMPublicKeyParameters;
 import org.briarproject.bramble.api.crypto.CryptoComponent;
 import org.briarproject.bramble.api.crypto.KeyAgreementCrypto;
 import org.briarproject.bramble.api.crypto.KeyPair;
 import org.briarproject.bramble.api.crypto.KeyParser;
+import org.briarproject.bramble.api.crypto.PostQuantumCapabilities;
+import org.briarproject.bramble.api.crypto.PostQuantumCapabilitiesCodec;
 import org.briarproject.bramble.api.crypto.PublicKey;
 import org.briarproject.bramble.api.crypto.SecretKey;
 import org.briarproject.bramble.api.keyagreement.Payload;
 import org.briarproject.bramble.api.keyagreement.PayloadEncoder;
+import org.briarproject.bramble.crypto.HybridKeyAgreement;
 import org.briarproject.nullsafety.NotNullByDefault;
 
 import java.io.IOException;
@@ -20,37 +26,12 @@ import static org.briarproject.bramble.api.keyagreement.KeyAgreementConstants.SH
 
 /**
  * Implementation of the BQP protocol.
- * <p/>
- * Alice:
- * <ul>
- * <li>Send A_KEY</li>
- * <li>Receive B_KEY
- * <ul>
- * <li>Check B_KEY matches B_COMMIT</li>
- * </ul></li>
- * <li>Calculate s</li>
- * <li>Send A_CONFIRM</li>
- * <li>Receive B_CONFIRM
- * <ul>
- * <li>Check B_CONFIRM matches expected</li>
- * </ul></li>
- * <li>Derive master</li>
- * </ul><p/>
- * Bob:
- * <ul>
- * <li>Receive A_KEY
- * <ul>
- * <li>Check A_KEY matches A_COMMIT</li>
- * </ul></li>
- * <li>Send B_KEY</li>
- * <li>Calculate s</li>
- * <li>Receive A_CONFIRM
- * <ul>
- * <li>Check A_CONFIRM matches expected</li>
- * </ul></li>
- * <li>Send B_CONFIRM</li>
- * <li>Derive master</li>
- * </ul>
+ *
+ * <p>The classical BQP exchange remains mandatory. When PQ is enabled by the
+ * caller, both peers first exchange a backward-compatible capability record.
+ * If both support ML-KEM-768, the classical secret is combined with an
+ * ML-KEM secret and a transcript context before confirmations are generated.
+ * Legacy peers fall back to the unchanged classical flow.</p>
  */
 @NotNullByDefault
 class KeyAgreementProtocol {
@@ -70,12 +51,21 @@ class KeyAgreementProtocol {
 	private final Payload theirPayload, ourPayload;
 	private final KeyPair ourKeyPair;
 	private final boolean alice;
+	private final boolean pqEnabled;
 
 	KeyAgreementProtocol(Callbacks callbacks, CryptoComponent crypto,
-			KeyAgreementCrypto keyAgreementCrypto,
-			PayloadEncoder payloadEncoder, KeyAgreementTransport transport,
-			Payload theirPayload, Payload ourPayload, KeyPair ourKeyPair,
-			boolean alice) {
+			KeyAgreementCrypto keyAgreementCrypto, PayloadEncoder payloadEncoder,
+			KeyAgreementTransport transport, Payload theirPayload,
+			Payload ourPayload, KeyPair ourKeyPair, boolean alice) {
+		this(callbacks, crypto, keyAgreementCrypto, payloadEncoder, transport,
+				theirPayload, ourPayload, ourKeyPair, alice, false);
+	}
+
+	KeyAgreementProtocol(Callbacks callbacks, CryptoComponent crypto,
+			KeyAgreementCrypto keyAgreementCrypto, PayloadEncoder payloadEncoder,
+			KeyAgreementTransport transport, Payload theirPayload,
+			Payload ourPayload, KeyPair ourKeyPair, boolean alice,
+			boolean pqEnabled) {
 		this.callbacks = callbacks;
 		this.crypto = crypto;
 		this.keyAgreementCrypto = keyAgreementCrypto;
@@ -85,22 +75,24 @@ class KeyAgreementProtocol {
 		this.ourPayload = ourPayload;
 		this.ourKeyPair = ourKeyPair;
 		this.alice = alice;
+		this.pqEnabled = pqEnabled;
 	}
 
-	/**
-	 * Perform the BQP protocol.
-	 *
-	 * @return the negotiated master key.
-	 * @throws AbortException when the protocol may have been tampered with.
-	 * @throws IOException for all other other connection errors.
-	 */
 	SecretKey perform() throws AbortException, IOException {
 		try {
+			PostQuantumCapabilities localPq = null;
+			PostQuantumCapabilities peerPq = null;
+			boolean usePq = false;
+			if (pqEnabled) {
+				localPq = PostQuantumCapabilities.local(HybridKeyAgreement.isSupported());
+				transport.sendPqCapabilities(localPq);
+				peerPq = transport.receivePqCapabilities();
+				usePq = localPq.canUseHybridWith(peerPq);
+			}
+
 			PublicKey theirPublicKey;
 			if (alice) {
 				sendKey();
-				// Alice waits here for Bob to scan her QR code, determine his
-				// role, receive her key and respond with his key
 				callbacks.connectionWaiting();
 				theirPublicKey = receiveKey();
 			} else {
@@ -108,6 +100,8 @@ class KeyAgreementProtocol {
 				sendKey();
 			}
 			SecretKey s = deriveSharedSecret(theirPublicKey);
+			if (usePq)
+				s = deriveHybridSecret(s, localPq, peerPq);
 			if (alice) {
 				sendConfirm(s, theirPublicKey);
 				receiveConfirm(s, theirPublicKey);
@@ -156,6 +150,55 @@ class KeyAgreementProtocol {
 		} catch (GeneralSecurityException e) {
 			throw new AbortException(e);
 		}
+	}
+
+	private SecretKey deriveHybridSecret(SecretKey classical,
+			PostQuantumCapabilities localPq, PostQuantumCapabilities peerPq)
+			throws AbortException {
+		try {
+			byte[] aliceCapabilities = PostQuantumCapabilitiesCodec.encode(
+					alice ? localPq : peerPq);
+			byte[] bobCapabilities = PostQuantumCapabilitiesCodec.encode(
+					alice ? peerPq : localPq);
+			byte[] kemPublicKey;
+			byte[] kemCiphertext;
+			byte[] kemSecret;
+			if (alice) {
+				AsymmetricCipherKeyPair pair = HybridKeyAgreement.generateKemKeyPair();
+				kemPublicKey = ((MLKEMPublicKeyParameters) pair.getPublic()).getEncoded();
+				transport.sendPqPublicKey(kemPublicKey);
+				kemCiphertext = transport.receivePqCiphertext();
+				kemSecret = HybridKeyAgreement.decapsulate(
+						(MLKEMPrivateKeyParameters) pair.getPrivate(), kemCiphertext);
+			} else {
+				kemPublicKey = transport.receivePqPublicKey();
+				MLKEMPublicKeyParameters publicKey =
+						HybridKeyAgreement.parsePublicKey(kemPublicKey);
+				HybridKeyAgreement.Encapsulation encapsulation =
+						HybridKeyAgreement.encapsulate(publicKey);
+				kemCiphertext = encapsulation.getCiphertext();
+				kemSecret = encapsulation.getSecret();
+				transport.sendPqCiphertext(kemCiphertext);
+			}
+			byte[] context = concat(aliceCapabilities, bobCapabilities,
+					kemPublicKey, kemCiphertext);
+			return new SecretKey(HybridKeyAgreement.combine(
+					classical.getBytes(), kemSecret, context));
+		} catch (Exception e) {
+			throw new AbortException(e);
+		}
+	}
+
+	private static byte[] concat(byte[]... values) {
+		int length = 0;
+		for (byte[] value : values) length += value.length;
+		byte[] result = new byte[length];
+		int offset = 0;
+		for (byte[] value : values) {
+			System.arraycopy(value, 0, result, offset, value.length);
+			offset += value.length;
+		}
+		return result;
 	}
 
 	private void sendConfirm(SecretKey s, PublicKey theirPublicKey)
