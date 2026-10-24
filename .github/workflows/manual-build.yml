@@ -18,5 +18,11 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Build debug APK
-        # Force a fresh automatic build on master.
         run: ./gradlew assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: briar-debug-apk
+          path: '**/build/outputs/apk/debug/*.apk'
+          if-no-files-found: error
+          retention-days: 14
