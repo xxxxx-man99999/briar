@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URLConnection;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.logging.Logger;
 
 import androidx.annotation.Nullable;
@@ -82,15 +83,13 @@ class AttachmentCreationTask {
 		try {
 			AttachmentHeader h = storeAttachment(uri);
 			AttachmentCreator attachmentCreator = this.attachmentCreator;
-			if (attachmentCreator != null) {
+			if (attachmentCreator != null)
 				attachmentCreator.onAttachmentHeaderReceived(uri, h, needsSize);
-			}
 		} catch (DbException | IOException e) {
 			logException(LOG, WARNING, e);
 			AttachmentCreator attachmentCreator = this.attachmentCreator;
-			if (attachmentCreator != null) {
+			if (attachmentCreator != null)
 				attachmentCreator.onAttachmentError(uri, e);
-			}
 			canceled = true;
 		}
 	}
@@ -99,20 +98,20 @@ class AttachmentCreationTask {
 	private AttachmentHeader storeAttachment(Uri uri)
 			throws IOException, DbException {
 		long start = now();
+		String path = uri.getPath();
 		String contentType = contentResolver.getType(uri);
-		if (contentType == null) {
-			String guessed = URLConnection.guessContentTypeFromName(uri.getPath());
-			if (guessed != null) contentType = guessed;
-		}
-		if (contentType == null && uri.getPath() != null &&
-				uri.getPath().toLowerCase().endsWith(VOICE_EXTENSION)) {
+		if (contentType == null)
+			contentType = URLConnection.guessContentTypeFromName(path);
+
+		// A file:// URI can report an unreliable or generic MIME type on some
+		// Android versions. The recorder always produces an M4A container, so
+		// the extension is authoritative for our voice attachment.
+		if (path != null && path.toLowerCase(Locale.ROOT).endsWith(VOICE_EXTENSION))
 			contentType = VOICE_MIME_TYPE;
-		}
 		if (contentType == null) throw new IOException("null content type");
 
 		boolean image = asList(getSupportedImageContentTypes()).contains(contentType);
-		boolean voice = VOICE_MIME_TYPE.equals(contentType) ||
-				"audio/x-m4a".equals(contentType);
+		boolean voice = VOICE_MIME_TYPE.equals(contentType);
 		if (!image && !voice)
 			throw new UnsupportedMimeTypeException(contentType, uri);
 
@@ -134,5 +133,4 @@ class AttachmentCreationTask {
 		logDuration(LOG, "Storing attachment", start);
 		return h;
 	}
-
 }
