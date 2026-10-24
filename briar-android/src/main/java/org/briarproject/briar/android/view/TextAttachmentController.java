@@ -35,6 +35,7 @@ import uk.co.samuelwall.materialtaptargetprompt.MaterialTapTargetPrompt;
 
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.widget.Toast.LENGTH_LONG;
+import static android.view.View.GONE;
 import static androidx.customview.view.AbsSavedState.EMPTY_STATE;
 import static androidx.lifecycle.Lifecycle.State.DESTROYED;
 import static androidx.core.content.ContextCompat.checkSelfPermission;
@@ -50,28 +51,23 @@ public class TextAttachmentController extends TextSendController
 		implements ImagePreviewListener {
 
 	private static final int REQUEST_VOICE_PERMISSION = 4701;
-
 	private final ImagePreview imagePreview;
 	private final AttachmentListener attachmentListener;
 	private final CompositeSendButton sendButton;
 	private final AttachmentManager attachmentManager;
 	private final AndroidVoiceRecorder voiceRecorder = new AndroidVoiceRecorder();
-
 	private final List<Uri> imageUris = new ArrayList<>();
 	private boolean loadingUris = false;
 	private boolean recordingVoice = false;
-	@Nullable
-	private File voiceOutput;
+	@Nullable private File voiceOutput;
 
 	public TextAttachmentController(TextInputView v, ImagePreview imagePreview,
-			AttachmentListener attachmentListener,
-			AttachmentManager attachmentManager) {
+			AttachmentListener attachmentListener, AttachmentManager attachmentManager) {
 		super(v, attachmentListener, false);
 		this.attachmentListener = attachmentListener;
 		this.imagePreview = imagePreview;
 		this.attachmentManager = attachmentManager;
 		this.imagePreview.setImagePreviewListener(this);
-
 		sendButton = (CompositeSendButton) compositeSendButton;
 		sendButton.setOnImageClickListener(view -> onImageButtonClicked());
 		v.setOnVoiceClickListener(view -> onVoiceButtonClicked());
@@ -80,9 +76,8 @@ public class TextAttachmentController extends TextSendController
 	@Override
 	protected void updateViewState() {
 		super.updateViewState();
-		if (loadingUris) {
-			sendButton.showProgress(true);
-		} else if (imageUris.isEmpty()) {
+		if (loadingUris) sendButton.showProgress(true);
+		else if (imageUris.isEmpty()) {
 			sendButton.showProgress(false);
 			sendButton.showImageButton(textIsEmpty, isSendButtonEnabled());
 		} else {
@@ -109,8 +104,7 @@ public class TextAttachmentController extends TextSendController
 	@Override
 	protected CharSequence getCurrentTextHint() {
 		if (imageUris.isEmpty()) return super.getCurrentTextHint();
-		Context ctx = textInput.getContext();
-		return ctx.getString(R.string.image_caption_hint);
+		return textInput.getContext().getString(R.string.image_caption_hint);
 	}
 
 	@Override
@@ -118,8 +112,8 @@ public class TextAttachmentController extends TextSendController
 		if (canSend()) {
 			if (loadingUris || recordingVoice) throw new AssertionError();
 			listener.onSendClick(textInput.getText(),
-					attachmentManager.getAttachmentHeadersForSending(),
-					expectedTimer).observe(attachmentListener, this::onSendStateChanged);
+					attachmentManager.getAttachmentHeadersForSending(), expectedTimer)
+					.observe(attachmentListener, this::onSendStateChanged);
 		}
 	}
 
@@ -130,13 +124,8 @@ public class TextAttachmentController extends TextSendController
 	}
 
 	@Override
-	protected boolean canSendEmptyText() {
-		return !imageUris.isEmpty();
-	}
-
-	public void setImagesSupported() {
-		sendButton.setImagesSupported();
-	}
+	protected boolean canSendEmptyText() { return !imageUris.isEmpty(); }
+	public void setImagesSupported() { sendButton.setImagesSupported(); }
 
 	private void onVoiceButtonClicked() {
 		if (recordingVoice) stopVoiceRecording();
@@ -153,7 +142,8 @@ public class TextAttachmentController extends TextSendController
 		if (checkSelfPermission(context, RECORD_AUDIO) != PERMISSION_GRANTED) {
 			ActivityCompat.requestPermissions(activity,
 					new String[] {RECORD_AUDIO}, REQUEST_VOICE_PERMISSION);
-			Toast.makeText(context, "Allow microphone access, then tap the microphone again", LENGTH_LONG).show();
+			Toast.makeText(context,
+					"Allow microphone access, then tap the microphone again", LENGTH_LONG).show();
 			return;
 		}
 		try {
@@ -179,8 +169,8 @@ public class TextAttachmentController extends TextSendController
 			textInput.setVoiceRecording(false);
 			updateViewState();
 			File output = requireNonNull(voiceOutput);
-			LiveData<AttachmentResult> result =
-					attachmentManager.storeAttachments(singletonList(Uri.fromFile(output)), false);
+			LiveData<AttachmentResult> result = attachmentManager
+					.storeAttachments(singletonList(Uri.fromFile(output)), false);
 			result.observe(attachmentListener, new Observer<AttachmentResult>() {
 				@Override
 				public void onChanged(@Nullable AttachmentResult attachmentResult) {
@@ -201,9 +191,9 @@ public class TextAttachmentController extends TextSendController
 					if (attachmentResult.isFinished()) {
 						result.removeObserver(this);
 						listener.onSendClick(null,
-								attachmentManager.getAttachmentHeadersForSending(),
-								expectedTimer).observe(attachmentListener, state ->
-								onVoiceSendStateChanged(state, output));
+								attachmentManager.getAttachmentHeadersForSending(), expectedTimer)
+								.observe(attachmentListener,
+										state -> onVoiceSendStateChanged(state, output));
 					}
 				}
 			});
@@ -258,8 +248,7 @@ public class TextAttachmentController extends TextSendController
 		}
 		imageUris.addAll(newUris);
 		updateViewState();
-		List<ImagePreviewItem> items = ImagePreviewItem.fromUris(imageUris);
-		imagePreview.showPreview(items);
+		imagePreview.showPreview(ImagePreviewItem.fromUris(imageUris));
 		LiveData<AttachmentResult> result = attachmentManager.storeAttachments(imageUris, restart);
 		result.observe(attachmentListener, new Observer<AttachmentResult>() {
 			@Override
@@ -355,8 +344,7 @@ public class TextAttachmentController extends TextSendController
 	}
 
 	private static class SavedState extends AbsSavedState {
-		@Nullable
-		private List<Uri> imageUris;
+		@Nullable private List<Uri> imageUris;
 		private SavedState(Parcelable superState) { super(superState); }
 		private SavedState(Parcel in) {
 			super(in);
@@ -369,10 +357,8 @@ public class TextAttachmentController extends TextSendController
 			out.writeList(imageUris);
 		}
 		public static final Creator<SavedState> CREATOR = new Creator<SavedState>() {
-			@Override
-			public SavedState createFromParcel(Parcel in) { return new SavedState(in); }
-			@Override
-			public SavedState[] newArray(int size) { return new SavedState[size]; }
+			@Override public SavedState createFromParcel(Parcel in) { return new SavedState(in); }
+			@Override public SavedState[] newArray(int size) { return new SavedState[size]; }
 		};
 	}
 
