@@ -10,7 +10,7 @@ import org.briarproject.briar.android.activity.ActivityComponent;
 import org.briarproject.briar.android.activity.BriarActivity;
 import org.briarproject.briar.android.attachment.AttachmentItem;
 import org.briarproject.briar.api.attachment.Attachment;
-import org.briarproject.briar.android.attachment.AttachmentRetriever;
+import org.briarproject.briar.api.attachment.AttachmentReader;
 import org.briarproject.nullsafety.MethodsNotNullByDefault;
 import org.briarproject.nullsafety.ParametersNotNullByDefault;
 
@@ -29,16 +29,14 @@ import static java.util.Objects.requireNonNull;
 public class VoiceActivity extends BriarActivity {
 
 	public static final String ATTACHMENT = "attachment";
-	public static final String ITEM_ID = "itemId";
 
 	@Inject
-	AttachmentRetriever attachmentRetriever;
+	AttachmentReader attachmentReader;
 
 	private MediaPlayer player;
 	private Button playButton;
 	private TextView status;
-	@Nullable
-	private File playbackFile;
+	@Nullable private File playbackFile;
 
 	@Override
 	public void injectActivity(ActivityComponent component) {
@@ -51,9 +49,8 @@ public class VoiceActivity extends BriarActivity {
 		setContentView(R.layout.activity_voice);
 		playButton = findViewById(R.id.playVoiceButton);
 		status = findViewById(R.id.voiceStatus);
-		AttachmentItem item = requireNonNull(
-				getIntent().getParcelableExtra(ATTACHMENT));
-		playButton.setOnClickListener(v -> togglePlayback(item));
+		AttachmentItem item = requireNonNull(getIntent().getParcelableExtra(ATTACHMENT));
+		playButton.setOnClickListener(v -> togglePlayback());
 		loadAttachment(item);
 	}
 
@@ -61,10 +58,8 @@ public class VoiceActivity extends BriarActivity {
 		status.setText("Loading voice message…");
 		runOnDbThread(() -> {
 			try {
-				Attachment attachment =
-						attachmentRetriever.getMessageAttachment(item.getHeader());
-				File file = new File(getCacheDir(),
-						"playback-" + System.currentTimeMillis() + ".m4a");
+				Attachment attachment = attachmentReader.getAttachment(item.getHeader());
+				File file = new File(getCacheDir(), "playback-" + System.currentTimeMillis() + ".m4a");
 				try (InputStream in = attachment.getStream();
 						FileOutputStream out = new FileOutputStream(file)) {
 					byte[] buffer = new byte[8192];
@@ -85,7 +80,7 @@ public class VoiceActivity extends BriarActivity {
 		});
 	}
 
-	private void togglePlayback(AttachmentItem item) {
+	private void togglePlayback() {
 		if (player != null && player.isPlaying()) {
 			player.pause();
 			playButton.setText("Play voice message");
