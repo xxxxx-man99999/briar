@@ -75,7 +75,7 @@ class ImageAdapter extends Adapter<RecyclerView.ViewHolder> {
 			}
 		};
 		if (holder instanceof VoiceViewHolder) {
-			((VoiceViewHolder) holder).bind(item, clickListener);
+			((VoiceViewHolder) holder).bind(clickListener);
 			return;
 		}
 		ImageViewHolder imageHolder = (ImageViewHolder) holder;
