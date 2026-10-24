@@ -82,7 +82,7 @@ public class TextInputView extends LinearLayout {
 	}
 	public void setOnVoiceClickListener(@Nullable OnClickListener listener) { voiceButton.setOnClickListener(listener); }
 	public void setVoiceRecording(boolean recording) {
-		voiceButton.setImageResource(recording ? android.R.drawable.ic_media_stop : android.R.drawable.ic_btn_speak_now);
+		voiceButton.setImageResource(recording ? android.R.drawable.ic_menu_close_clear_cancel : android.R.drawable.ic_btn_speak_now);
 		voiceButton.setContentDescription(recording ? "Stop voice recording" : "Record voice message");
 		voiceRecordingBar.setVisibility(recording ? VISIBLE : GONE);
 		textInput.setVisibility(recording ? GONE : VISIBLE);
