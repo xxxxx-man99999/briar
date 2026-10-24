@@ -94,12 +94,20 @@ class ConversationMessageViewHolder extends ConversationItemViewHolder {
 		}
 
 		if (item.getAttachments().size() == 1) {
-			// apply image size constraints for a single image
 			AttachmentItem attachment = item.getAttachments().get(0);
-			int width = attachment.getThumbnailWidth();
-			int height = attachment.getThumbnailHeight();
-			constraintSet.constrainWidth(R.id.imageList, width);
-			constraintSet.constrainHeight(R.id.imageList, height);
+			if (attachment.getMimeType().startsWith("audio/")) {
+				// Voice messages use a compact WhatsApp-inspired horizontal card.
+				constraintSet.constrainWidth(R.id.imageList,
+						R.dimen.message_bubble_voice_width);
+				constraintSet.constrainHeight(R.id.imageList,
+						R.dimen.message_bubble_voice_height);
+			} else {
+				// apply image size constraints for a single image
+				int width = attachment.getThumbnailWidth();
+				int height = attachment.getThumbnailHeight();
+				constraintSet.constrainWidth(R.id.imageList, width);
+				constraintSet.constrainHeight(R.id.imageList, height);
+			}
 		} else {
 			// bubble adapts to size of image list
 			constraintSet.constrainWidth(R.id.imageList, WRAP_CONTENT);
