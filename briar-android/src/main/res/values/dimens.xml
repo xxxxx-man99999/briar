@@ -53,8 +53,8 @@
 	<dimen name="message_bubble_image_max_width">240dp</dimen>
 	<dimen name="message_bubble_image_min_height">100dp</dimen>
 	<dimen name="message_bubble_image_max_height">320dp</dimen>
-	<dimen name="message_bubble_voice_width">260dp</dimen>
-	<dimen name="message_bubble_voice_height">64dp</dimen>
+	<dimen name="message_bubble_voice_width">232dp</dimen>
+	<dimen name="message_bubble_voice_height">56dp</dimen>
 	<dimen name="message_bubble_border">2dp</dimen>
 	<dimen name="message_bubble_padding_sides">12dp</dimen>
 	<dimen name="message_bubble_padding_sides_inner">10dp</dimen>
@@ -67,6 +67,10 @@
 	<dimen name="message_bubble_margin_tail">8dp</dimen>
 	<dimen name="message_bubble_margin_non_tail">30dp</dimen>
 	<dimen name="message_bubble_stroke">1px</dimen>
+
+	<dimen name="voice_recording_height">42dp</dimen>
+	<dimen name="voice_recording_wave_height">24dp</dimen>
+	<dimen name="voice_recording_dot_size">8dp</dimen>
 
 	<dimen name="forum_nested_line_width">1dp</dimen>
 	<dimen name="forum_nested_indicator">25dp</dimen>
