@@ -14,7 +14,11 @@
 	<LinearLayout
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
-		android:background="@color/card_background">
+		android:background="@color/card_background"
+		android:gravity="center_vertical"
+		android:minHeight="@dimen/text_input_height"
+		android:paddingStart="4dp"
+		android:paddingEnd="4dp">
 
 		<org.briarproject.briar.android.view.EmojiTextInputView
 			android:id="@+id/emojiTextInput"
@@ -23,13 +27,77 @@
 			android:layout_weight="1"
 			app:maxTextLines="4" />
 
+		<LinearLayout
+			android:id="@+id/voiceRecordingBar"
+			android:layout_width="0dp"
+			android:layout_height="@dimen/voice_recording_height"
+			android:layout_weight="1"
+			android:gravity="center_vertical"
+			android:orientation="horizontal"
+			android:paddingStart="8dp"
+			android:paddingEnd="8dp"
+			android:visibility="gone">
+
+			<View
+				android:layout_width="@dimen/voice_recording_dot_size"
+				android:layout_height="@dimen/voice_recording_dot_size"
+				android:layout_marginEnd="8dp"
+				android:background="@android:color/holo_red_light" />
+
+			<TextView
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="Recording"
+				android:textAppearance="?android:attr/textAppearanceSmall"
+				android:textStyle="bold" />
+
+			<Chronometer
+				android:id="@+id/voiceRecordingTimer"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_marginStart="8dp"
+				android:format="%s"
+				android:textAppearance="?android:attr/textAppearanceSmall" />
+
+			<Space
+				android:layout_width="0dp"
+				android:layout_height="1dp"
+				android:layout_weight="1" />
+
+			<View
+				android:layout_width="2dp"
+				android:layout_height="10dp"
+				android:layout_marginStart="2dp"
+				android:background="?android:attr/colorControlNormal" />
+			<View
+				android:layout_width="2dp"
+				android:layout_height="18dp"
+				android:layout_marginStart="2dp"
+				android:background="?android:attr/colorControlNormal" />
+			<View
+				android:layout_width="2dp"
+				android:layout_height="24dp"
+				android:layout_marginStart="2dp"
+				android:background="?android:attr/colorControlNormal" />
+			<View
+				android:layout_width="2dp"
+				android:layout_height="14dp"
+				android:layout_marginStart="2dp"
+				android:background="?android:attr/colorControlNormal" />
+			<View
+				android:layout_width="2dp"
+				android:layout_height="20dp"
+				android:layout_marginStart="2dp"
+				android:background="?android:attr/colorControlNormal" />
+		</LinearLayout>
+
 		<androidx.appcompat.widget.AppCompatImageButton
 			android:id="@+id/voiceButton"
 			android:layout_width="@dimen/text_input_height"
 			android:layout_height="@dimen/text_input_height"
 			android:background="?attr/selectableItemBackground"
-			android:contentDescription="Voice message"
-			android:padding="4dp"
+			android:contentDescription="Record voice message"
+			android:padding="8dp"
 			android:scaleType="center"
 			android:src="@android:drawable/ic_btn_speak_now"
 			android:tint="?attr/colorControlNormal" />
