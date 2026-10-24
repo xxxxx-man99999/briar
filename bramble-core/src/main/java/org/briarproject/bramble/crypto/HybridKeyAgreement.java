@@ -1,35 +1,33 @@
 package org.briarproject.bramble.crypto;
 
-import org.briarproject.bramble.api.crypto.SecretKey;
 import org.briarproject.nullsafety.NotNullByDefault;
 
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.spec.NamedParameterSpec;
-import java.util.Arrays;
 
 import javax.crypto.KEM;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Hybrid classical + post-quantum key agreement primitive.
  *
  * The existing Briar agreement remains the authentication mechanism. This
- * class provides the PQ KEM half and a deterministic combiner so a future
- * wire-protocol extension can negotiate it without replacing legacy peers.
+ * class provides the ML-KEM half and a domain-separated combiner for the
+ * negotiated hybrid secret.
  */
 @NotNullByDefault
 public final class HybridKeyAgreement {
 
 	private static final String KEM_ALGORITHM = "ML-KEM";
-	private static final String KDF_ALGORITHM = "PBKDF2WithHmacSHA256";
-	private static final int KEY_BITS = 256;
-	private static final byte[] LABEL = "Briar-Hybrid-KEM-v1".getBytes();
+	private static final String KEM_PARAMETER = "ML-KEM-768";
+	private static final byte[] LABEL =
+			"Briar-Hybrid-KEM-v1".getBytes(StandardCharsets.US_ASCII);
 
 	private HybridKeyAgreement() {}
 
@@ -44,67 +42,48 @@ public final class HybridKeyAgreement {
 
 	public static KeyPair generateKemKeyPair() throws GeneralSecurityException {
 		KeyPairGenerator generator = KeyPairGenerator.getInstance(KEM_ALGORITHM);
-		generator.initialize(new NamedParameterSpec("ML-KEM-768"), new SecureRandom());
+		generator.initialize(new NamedParameterSpec(KEM_PARAMETER), new SecureRandom());
 		return generator.generateKeyPair();
 	}
 
-	public static byte[] encapsulate(PublicKey publicKey) throws GeneralSecurityException {
-		KEM kem = KEM.getInstance(KEM_ALGORITHM);
-		KEM.Encapsulator encapsulator = kem.newEncapsulator(publicKey);
-		KEM.Encapsulated encapsulated = encapsulator.encapsulate();
-		return pack(encapsulated.key().getEncoded(), encapsulated.encapsulation());
-	}
-
-	public static byte[] decapsulate(PrivateKey privateKey, byte[] packed)
+	public static Encapsulation encapsulate(PublicKey publicKey)
 			throws GeneralSecurityException {
-		byte[][] parts = unpack(packed);
 		KEM kem = KEM.getInstance(KEM_ALGORITHM);
-		KEM.Decapsulator decapsulator = kem.newDecapsulator(privateKey);
-		return decapsulator.decapsulate(parts[1]).getEncoded();
+		KEM.Encapsulated encapsulated = kem.newEncapsulator(publicKey).encapsulate();
+		return new Encapsulation(encapsulated.encapsulation(),
+				encapsulated.key().getEncoded());
 	}
 
-	/**
-	 * Combines the existing classical secret with the ML-KEM secret.
-	 */
+	public static byte[] decapsulate(PrivateKey privateKey, byte[] encapsulation)
+			throws GeneralSecurityException {
+		KEM kem = KEM.getInstance(KEM_ALGORITHM);
+		return kem.newDecapsulator(privateKey).decapsulate(encapsulation).getEncoded();
+	}
+
+	/** Combines the existing classical secret and the ML-KEM secret with SHA-256. */
 	public static byte[] combine(byte[] classicalSecret, byte[] kemSecret)
 			throws GeneralSecurityException {
-		byte[] material = new byte[LABEL.length + classicalSecret.length + kemSecret.length];
-		System.arraycopy(LABEL, 0, material, 0, LABEL.length);
-		System.arraycopy(classicalSecret, 0, material, LABEL.length, classicalSecret.length);
-		System.arraycopy(kemSecret, 0, material, LABEL.length + classicalSecret.length,
-				kemSecret.length);
-		SecretKeyFactory factory = SecretKeyFactory.getInstance(KDF_ALGORITHM);
-		SecretKeySpec key = new SecretKeySpec(new byte[32], "HmacSHA256");
-		return factory.generateSecret(new javax.crypto.spec.PBEKeySpec(
-				bytesToChars(material), new byte[16], 1, KEY_BITS)).getEncoded();
+		MessageDigest digest = MessageDigest.getInstance("SHA-256");
+		digest.update(LABEL);
+		digest.update((byte) (classicalSecret.length >>> 24));
+		digest.update((byte) (classicalSecret.length >>> 16));
+		digest.update((byte) (classicalSecret.length >>> 8));
+		digest.update((byte) classicalSecret.length);
+		digest.update(classicalSecret);
+		digest.update(kemSecret);
+		return digest.digest();
 	}
 
-	private static char[] bytesToChars(byte[] input) {
-		char[] chars = new char[input.length];
-		for (int i = 0; i < input.length; i++) chars[i] = (char) (input[i] & 0xff);
-		return chars;
-	}
+	public static final class Encapsulation {
+		private final byte[] ciphertext;
+		private final byte[] secret;
 
-	private static byte[] pack(byte[] secret, byte[] encapsulation) {
-		byte[] out = new byte[4 + secret.length + encapsulation.length];
-		out[0] = (byte) (secret.length >>> 24);
-		out[1] = (byte) (secret.length >>> 16);
-		out[2] = (byte) (secret.length >>> 8);
-		out[3] = (byte) secret.length;
-		System.arraycopy(secret, 0, out, 4, secret.length);
-		System.arraycopy(encapsulation, 0, out, 4 + secret.length, encapsulation.length);
-		return out;
-	}
+		private Encapsulation(byte[] ciphertext, byte[] secret) {
+			this.ciphertext = ciphertext.clone();
+			this.secret = secret.clone();
+		}
 
-	private static byte[][] unpack(byte[] packed) throws GeneralSecurityException {
-		if (packed.length < 4) throw new GeneralSecurityException("Invalid ML-KEM payload");
-		int secretLength = ((packed[0] & 0xff) << 24) | ((packed[1] & 0xff) << 16)
-				| ((packed[2] & 0xff) << 8) | (packed[3] & 0xff);
-		if (secretLength < 0 || secretLength > packed.length - 4)
-			throw new GeneralSecurityException("Invalid ML-KEM payload");
-		return new byte[][] {
-				Arrays.copyOfRange(packed, 4, 4 + secretLength),
-				Arrays.copyOfRange(packed, 4 + secretLength, packed.length)
-		};
+		public byte[] getCiphertext() { return ciphertext.clone(); }
+		public byte[] getSecret() { return secret.clone(); }
 	}
 }
