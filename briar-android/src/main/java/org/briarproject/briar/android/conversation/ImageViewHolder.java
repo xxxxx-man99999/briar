@@ -47,11 +47,12 @@ class ImageViewHolder extends ViewHolder {
 		setImageViewDimensions(attachment, single, needsStretch);
 		if (attachment.getState() != AVAILABLE) {
 			GlideApp.with(imageView).clear(imageView);
-			if (attachment.getState() == ERROR) {
-				imageView.setImageResource(ERROR_RES);
-			} else {
-				imageView.setImageResource(R.drawable.ic_image_missing);
-			}
+			imageView.setImageResource(attachment.getState() == ERROR ?
+					ERROR_RES : R.drawable.ic_image_missing);
+			imageView.setScaleType(FIT_CENTER);
+		} else if (attachment.getMimeType().startsWith("audio/")) {
+			GlideApp.with(imageView).clear(imageView);
+			imageView.setImageResource(android.R.drawable.ic_btn_speak_now);
 			imageView.setScaleType(FIT_CENTER);
 		} else {
 			loadImage(attachment, r);
