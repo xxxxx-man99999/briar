@@ -10,11 +10,18 @@ import javax.annotation.concurrent.Immutable;
 public class NetworkStatus {
 
 	private final boolean connected, wifi, ipv6Only;
+	private final CellularNetworkType cellularNetworkType;
 
 	public NetworkStatus(boolean connected, boolean wifi, boolean ipv6Only) {
+		this(connected, wifi, ipv6Only, CellularNetworkType.NONE);
+	}
+
+	public NetworkStatus(boolean connected, boolean wifi, boolean ipv6Only,
+			CellularNetworkType cellularNetworkType) {
 		this.connected = connected;
 		this.wifi = wifi;
 		this.ipv6Only = ipv6Only;
+		this.cellularNetworkType = cellularNetworkType;
 	}
 
 	public boolean isConnected() {
@@ -29,9 +36,19 @@ public class NetworkStatus {
 		return ipv6Only;
 	}
 
+	public CellularNetworkType getCellularNetworkType() {
+		return cellularNetworkType;
+	}
+
+	public boolean isLowBandwidthCellular() {
+		return cellularNetworkType == CellularNetworkType.G2
+				|| cellularNetworkType == CellularNetworkType.G3;
+	}
+
 	@Override
 	public int hashCode() {
-		return (connected ? 1 : 0) | (wifi ? 2 : 0) | (ipv6Only ? 4 : 0);
+		return (connected ? 1 : 0) | (wifi ? 2 : 0) | (ipv6Only ? 4 : 0)
+				| (cellularNetworkType.ordinal() << 3);
 	}
 
 	@Override
@@ -40,7 +57,8 @@ public class NetworkStatus {
 			NetworkStatus s = (NetworkStatus) o;
 			return connected == s.connected
 					&& wifi == s.wifi
-					&& ipv6Only == s.ipv6Only;
+					&& ipv6Only == s.ipv6Only
+					&& cellularNetworkType == s.cellularNetworkType;
 		}
 		return false;
 	}
