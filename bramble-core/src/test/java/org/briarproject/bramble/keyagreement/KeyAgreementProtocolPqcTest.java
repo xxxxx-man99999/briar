@@ -9,6 +9,7 @@ import org.briarproject.bramble.api.keyagreement.PayloadEncoder;
 import org.briarproject.bramble.test.BrambleTestCase;
 import org.jmock.Expectations;
 import org.jmock.auto.Mock;
+import org.jmock.imposters.ByteBuddyClassImposteriser;
 import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.junit.Rule;
 import org.junit.Test;
@@ -22,7 +23,9 @@ import static org.junit.Assert.assertTrue;
 public class KeyAgreementProtocolPqcTest extends BrambleTestCase {
 
     @Rule
-    public JUnitRuleMockery context = new JUnitRuleMockery();
+    public JUnitRuleMockery context = new JUnitRuleMockery() {{
+        setImposteriser(ByteBuddyClassImposteriser.INSTANCE);
+    }};
 
     @Mock CryptoComponent crypto;
     @Mock KeyAgreementCrypto keyAgreementCrypto;
