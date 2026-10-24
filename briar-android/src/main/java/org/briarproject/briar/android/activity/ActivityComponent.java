@@ -7,6 +7,7 @@ import org.briarproject.briar.android.StartupFailureActivity;
 import org.briarproject.briar.android.account.SetupActivity;
 import org.briarproject.briar.android.account.SetupFragment;
 import org.briarproject.briar.android.account.UnlockActivity;
+import org.briarproject.briar.android.attachment.AttachmentModule;
 import org.briarproject.briar.android.blog.BlogActivity;
 import org.briarproject.briar.android.blog.BlogFragment;
 import org.briarproject.briar.android.blog.BlogPostFragment;
@@ -90,6 +91,7 @@ import dagger.Component;
 @ActivityScope
 @Component(modules = {
 		ActivityModule.class,
+		AttachmentModule.class,
 		CreateGroupModule.class,
 		GroupInvitationModule.class,
 		GroupMemberModule.class,
