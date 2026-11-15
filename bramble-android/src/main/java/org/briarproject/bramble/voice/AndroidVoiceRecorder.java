@@ -31,24 +31,32 @@ public final class AndroidVoiceRecorder {
 			throw new IOException("Unable to create recording directory");
 
 		MediaRecorder r = new MediaRecorder();
-		r.setAudioSource(MediaRecorder.AudioSource.MIC);
-		r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-		r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-		// Keep the bitrate low for cellular transfer, but don't force a sampling
-		// rate. Some older Android/Samsung AAC encoders reject 16 kHz even though
-		// they support AAC/MPEG-4 perfectly well.
-		r.setAudioEncodingBitRate(24000);
-		r.setMaxDuration(MAX_DURATION_MS);
-		r.setOutputFile(output.getAbsolutePath());
 		try {
+			r.setAudioSource(MediaRecorder.AudioSource.MIC);
+			r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+			r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+			// Keep the bitrate low for cellular transfer, but don't force a sampling
+			// rate. Some older Android/Samsung AAC encoders reject 16 kHz even though
+			// they support AAC/MPEG-4 perfectly well.
+			r.setAudioEncodingBitRate(24000);
+			r.setMaxDuration(MAX_DURATION_MS);
+			r.setOutputFile(output.getAbsolutePath());
 			r.prepare();
-		r.start();
-		} catch (RuntimeException e) {
+			r.start();
+		} catch (IOException | RuntimeException e) {
+			// A partially configured/prepared recorder must never leak native resources.
 			try {
 				r.reset();
-			} finally {
-				r.release();
+			} catch (RuntimeException ignored) {
+				// release() below is still required when reset() fails.
 			}
+			try {
+				r.release();
+			} catch (RuntimeException ignored) {
+				// Preserve the original setup failure.
+			}
+			output.delete();
+			if (e instanceof IOException) throw (IOException) e;
 			throw new IOException("Unable to start AAC voice recorder", e);
 		}
 		recorder = r;
