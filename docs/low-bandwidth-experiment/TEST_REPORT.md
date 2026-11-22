@@ -17,11 +17,23 @@
 | Full hybrid PQ handshake | Not implemented/verified | Do not claim PQ-secure Briar messaging |
 | Upstream↔fork compatibility | Not tested/recorded | Pending |
 
-## 2. Reported test environment
+## 2. Qualitative 2G test record (developer-reported)
 
-The developer described testing with two Android devices. The exact models, Android versions, carrier/operator, build commit, and APK hashes are not present in the currently available test record.
+A two-device test was reported as successful for the following content types while using a 2G connection:
 
-## 3. Reproducibility checklist
+| Content type | Reported outcome | Quantitative details |
+|---|---|---|
+| Text messages | Successfully exchanged | Not recorded |
+| Images / files | Successfully transferred | File size, transfer time, and trial count not recorded |
+| Audio recordings | Successfully exchanged/transferred in the test | Recording duration/size, transfer time, and repeat count not recorded |
+
+**Interpretation:** This is a preliminary, qualitative observation of successful transfer in the tested setup. It is not a benchmark, does not quantify speed or reliability, and cannot yet establish superiority over upstream Briar or general performance across 2G networks.
+
+## 3. Reported test environment
+
+The developer described testing with two Android devices. The exact models, Android versions, carrier/operator, build commit, and APK hashes are not present in the currently available test record. It has also not been documented whether 2G was manually forced and verified on both devices or how the devices were connected during the experiment.
+
+## 4. Reproducibility checklist
 
 For each test run, record:
 
@@ -37,7 +49,7 @@ For each test run, record:
 - [ ] Retry count / resume after interruption
 - [ ] Relevant logs, sanitized of names, keys, contact identifiers, and message content
 
-## 4. Proposed matrix (not yet results)
+## 5. Proposed matrix (not yet results)
 
 | Network | Payload | Trials | Metrics |
 |---|---|---:|---|
@@ -51,6 +63,6 @@ For each test run, record:
 
 **Do not fill this matrix with estimates.** Add only observed values.
 
-## 5. Interpretation
+## 6. Interpretation and limitations
 
 The reported transfer success is useful preliminary evidence that the modified build was able to operate in the tested conditions. Without detailed logs, controlled comparison, and repeated trials, it does not prove a general 2G performance improvement, reliable resume, or universal support across carriers/devices.
