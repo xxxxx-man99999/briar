@@ -5,6 +5,13 @@ Unlike traditional messaging apps, Briar doesn't rely on a central server - mess
 
 If the Internet's down, Briar can sync via Bluetooth or Wi-Fi, keeping information flowing in a crisis. If the Internet's up, Briar can sync via the Tor network, protecting users and their relationships from surveillance.
 
+> ## Experimental fork work (not an official Briar release)
+> This repository also contains experimental fork documentation about cellular-aware / low-bandwidth transfer policy, related voice-message work, and an ML-KEM-768 integration foundation. These experiments are not upstreamed or part of an official Briar release.
+>
+> **Reported test:** the developer reports that two Android devices successfully exchanged text, images/files, and audio recordings during a 2G test. Detailed reproducible measurements (device/network details, payload sizes, timing, repeat count, logs) have not yet been published, so this is qualitative evidence—not a benchmark or proof of a general performance improvement.
+>
+> [Experimental documentation and test report](docs/low-bandwidth-experiment/README.md) · [Technical case study](docs/low-bandwidth-experiment/TECHNICAL_CASE_STUDY.md) · [Test report](docs/low-bandwidth-experiment/TEST_REPORT.md) · [Experimental changelog](docs/low-bandwidth-experiment/CHANGELOG_EXPERIMENTAL.md) · [Upstream proposal draft](docs/low-bandwidth-experiment/UPSTREAM_PROPOSAL.md)
+
 ## Download Briar
 
 [<img src="https://briarproject.org//img/fdroid_badge.png"  width="240">](https://briarproject.org/fdroid)
